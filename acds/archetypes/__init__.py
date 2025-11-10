@@ -3,7 +3,7 @@ from .pron import (PhysicallyImplementableRandomizedOscillatorsNetwork,
                    MultistablePhysicallyImplementableRandomizedOscillatorsNetwork)
 from .trainable_pron import TrainedPhysicallyImplementableRandomizedOscillatorsNetwork
 from .hcornn import hcoRNN
-from .esn import DeepReservoir
+from .esn import DeepReservoir, ReservoirCell
 from .rnn import LSTM, RNN_DFA, GRU_DFA
 from .utils import *
 
