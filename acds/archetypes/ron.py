@@ -78,6 +78,7 @@ class RandomizedOscillatorsNetwork(nn.Module):
             device (str): Device to run the model on. Options are 'cpu' and 'cuda'.
         """
         super().__init__()
+        self.n_inp = n_inp
         self.n_hid = n_hid
         self.device = device
         self.dt = dt

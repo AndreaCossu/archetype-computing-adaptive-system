@@ -88,7 +88,7 @@ class ReservoirCell(torch.nn.Module):
             self.recurrent_kernel = W
         else:
             I = sparse_eye_init(self.units)
-            W = W * self.leaky + (I * (1 - self.leaky))
+            W = W * self.leaky + (I * (1.0 - self.leaky))
             W = spectral_norm_scaling(W, spectral_radius)
             self.recurrent_kernel = (W + I * (self.leaky - 1)) * (1 / self.leaky)
         self.recurrent_kernel = nn.Parameter(self.recurrent_kernel, requires_grad=False)
@@ -252,7 +252,7 @@ class DeepReservoir(torch.nn.Module):
         # state variables projected to the next layer fixed,
         # i.e., the number of trainable parameters does not depend on concat
         if concat:
-            self.layers_units = np.int(tot_units / n_layers)
+            self.layers_units = int(tot_units / n_layers)
         else:
             self.layers_units = tot_units
 

@@ -58,7 +58,7 @@ def plot_combined_pca(pca_results, out_dir, labels=None):
 def main(args):
     # Prepare output directory
     out_dir = os.path.join(
-        "/scratch/a.cossu/results_collective",
+        "results/results_collective",
         f"mod{args.n_modules}_rho_{args.rho}_nhid_{args.n_hid}_timesteps_{args.timesteps}_inpscaling_{args.inp_scaling}{args.suffix}"
     )
     os.makedirs(out_dir, exist_ok=True)
@@ -106,8 +106,8 @@ def main(args):
                     hs[i] = (hy, hz)
                     states[i].append(hy)
                     inputs[i].append(input_signal)
-        
         for i in range(args.n_modules):
+            
             traj_inp = torch.cat(inputs[i][args.washout:], dim=0)  # shape (timesteps - washout, n_hid)
             input_signals[i].append(traj_inp)
 
@@ -115,7 +115,7 @@ def main(args):
         for i in range(args.n_modules):
             hidden_states[i] = torch.stack(states[i], dim=1)[:, args.washout:, :].cpu().numpy().squeeze(0)
             all_states[i].append(hidden_states[i])
-
+    breakpoint()
     torch.save(input_signals, os.path.join(out_dir, f"input_signals.pt"))
 
     for i in range(args.n_modules):

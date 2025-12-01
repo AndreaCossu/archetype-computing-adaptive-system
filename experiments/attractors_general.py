@@ -6,8 +6,8 @@ from tqdm import tqdm
 import os
 from experiments.attractors_single import pca
 from acds.archetypes.ron import RandomizedOscillatorsNetwork
-from experiments.archetipes_network import ArchetipesNetwork
-from experiments.connection_matrices import cycle_matrix
+from acds.networks.archetipes_network import ArchetipesNetwork
+from acds.networks.connection_matrices import cycle_matrix
 from collections import defaultdict
 
 
@@ -141,4 +141,5 @@ if __name__ == "__main__":
     parser.add_argument("--n_init_states", type=int, default=1000, help="Number of initial states to generate")
 
     args = parser.parse_args()
+    print(args)
     main(args)

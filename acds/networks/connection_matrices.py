@@ -7,13 +7,13 @@ def cycle_matrix(n):
     m[0, n-1] = 1
     return m
 
-def fully_connected(n):
+def full_matrix(n):
     m = torch.ones((n, n))
     m[torch.arange(n, dtype=torch.int), torch.arange(n, dtype=torch.int)] = 0
     return m
 
 
-def random_connections(n, p=0.5, seed=None):
+def random_matrix(n, p=0.5, seed=None):
     if seed is not None:
         torch.manual_seed(seed)
     probs = torch.empty((n, n)).uniform_(0, 1)
@@ -24,5 +24,5 @@ def random_connections(n, p=0.5, seed=None):
 
 if __name__ == '__main__':
     print(cycle_matrix(5), "\n")
-    print(fully_connected(5), "\n")
-    print(random_connections(5, p=0.33), "\n")
+    print(random_matrix(5), "\n")
+    print(random_matrix(5, p=0.33), "\n")
