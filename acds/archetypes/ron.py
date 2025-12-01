@@ -47,6 +47,7 @@ class RandomizedOscillatorsNetwork(nn.Module):
         diffusive_gamma=0.0,
         rho: float = 0.99,
         input_scaling: float = 1.0,
+        bias_scaling: float = 0.0,
         topology: Literal[
             "full", "lower", "orthogonal", "band", "ring", "toeplitz", "antisymmetric"
         ] = "full",
@@ -112,7 +113,7 @@ class RandomizedOscillatorsNetwork(nn.Module):
 
         x2h = torch.rand(n_inp, n_hid) * input_scaling
         self.x2h = nn.Parameter(x2h, requires_grad=False)
-        bias = (torch.rand(n_hid) * 2 - 1) * input_scaling
+        bias = (torch.rand(n_hid) * 2 - 1) * bias_scaling
         self.bias = nn.Parameter(bias, requires_grad=False)
 
     def cell(

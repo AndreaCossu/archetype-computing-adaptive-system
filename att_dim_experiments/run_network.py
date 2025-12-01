@@ -20,12 +20,13 @@ from itertools import cycle
 
 def plot_multiple_fading_trajectories(
         trajectories,
-        transient = 100,
+        transient = 0,
         labels=None,
         alpha_start=0.1,
         alpha_end=1.0,
         line_alpha=0.5,
         line_width=1.5,
+        marker=3,
         ax=None):
     """
     Plot multiple trajectories with progressive transparency.
@@ -44,9 +45,11 @@ def plot_multiple_fading_trajectories(
         Transparency of connecting line.
     line_width : float
         Width of connecting line.
+    marker : int
+        Size of scatter markers.
     ax : matplotlib Axes, optional
         Axes to plot on. If None, a new one is created.
-
+    
     Returns
     -------
     ax : matplotlib Axes
@@ -81,7 +84,7 @@ def plot_multiple_fading_trajectories(
         ax.plot(x, y, color=base_color, alpha=line_alpha, linewidth=line_width, label=label)
 
         # Scatter with varying transparency
-        ax.scatter(x, y, c=colors)
+        ax.scatter(x, y, c=colors, s=marker)
 
     if any(label is not None for label in labels):
         ax.legend()
@@ -159,7 +162,7 @@ if __name__ == "__main__":
     group.add_argument(
         "--dt",
         type=float,
-        default=0.1,
+        default=1.,
     )
     group.add_argument(
         "--gamma",
@@ -174,7 +177,7 @@ if __name__ == "__main__":
     group.add_argument(
         "--diffusive_gamma",
         type=float,
-        default=1.,
+        default=0.,
     )
     group.add_argument(
         "--rho",
@@ -184,7 +187,7 @@ if __name__ == "__main__":
     group.add_argument(
         "--input_scaling",
         type=float,
-        default=1.,
+        default=0.1,
     )
 
     args = parser.parse_args()
@@ -199,12 +202,14 @@ if __name__ == "__main__":
         seq_len=args.seq_len,
         in_dim = args.in_dim,
         **network_kwargs,
-        x = torch.zeros((10000, 1))
     )
     print(traj[0].shape, traj[1].shape)
     
     h_trajectories = rearrange(traj[0], "seq nmod hdim -> nmod hdim seq")
 
-    plot_multiple_fading_trajectories(h_trajectories, transient=1000)
-
+    print(h_trajectories.shape)
+    print(h_trajectories[0,0,:100])
+    print(h_trajectories[0,0,-100:])
+    plot_multiple_fading_trajectories(h_trajectories, transient=500, line_width=0.3)
 plt.show()
+
