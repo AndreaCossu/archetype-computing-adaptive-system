@@ -1,9 +1,11 @@
 import torch
 import sys
+
+from tqdm import tqdm
 sys.path.append("..")
 from typing import List, Sequence
 from torch import nn
-from acds.archetypes import RandomizedOscillatorsNetwork as RON
+from acds.archetypes import InterconnectionRON as RON
 
 from einops import einsum, rearrange # I like using einops because it allows strings as axes names instead of just letters, and for other stuff
 # from torch import einsum
@@ -12,6 +14,7 @@ class ArchetipesNetwork(nn.Module):
         self,
         archetypes: Sequence[RON],
         connection_matrix: torch.Tensor,
+        rho_m: float = 1.0,
     ):
         """A network of interconnected archetipes with any topology
 
@@ -25,7 +28,10 @@ class ArchetipesNetwork(nn.Module):
         self.n_inp = self.archetipes[0].n_inp
         self.n_modules = len(archetypes)
         self.connection_matrix = nn.Parameter(connection_matrix)
-        self.wm = torch.nn.Linear(self.n_hid, self.n_inp, bias=False)
+        self.wm = torch.nn.Linear(self.n_hid, self.n_hid, bias=False)
+        spec_rad = torch.linalg.eigvals(self.wm.weight).abs().max()
+        self.wm.weight.data *= rho_m / spec_rad # rescale to have spectral radius rho_m
+
 
     def _step(self, x, prev_states, prev_outs):
         """Perform one step of forward pass
@@ -35,19 +41,19 @@ class ArchetipesNetwork(nn.Module):
             prev_states(Tensor of shape (n_modules, n_states, h_dim)): state(s) for each archetipe at time t-1, which are also the outputs
             prev_outs (Tensor of shape (n_modules, h_dim)): output of the models in the previous timestep, (e.g. h for ESN or h_y for RON)
         """
-        new_ins = einsum(self.connection_matrix, prev_outs, "exp_out exp_in, exp_in hdim -> exp_out hdim") # actually implementable simply with matmul idk if it's more efficient
-        new_ins = self.wm(new_ins)
-        new_ins = einsum(new_ins, x, "exp idim, idim -> exp idim") 
+        prev_outs_transformed = self.wm(prev_outs) # transform the outputs before feeding them back
+        feedback = self.connection_matrix @ prev_outs_transformed 
+        #feedback = einsum(self.connection_matrix, prev_outs_transformed, "exp_out exp_in, exp_in hdim -> exp_out hdim") # actually implementable simply with matmul idk if it's more efficient
         # torch version of einsum
         # new_ins = einsum("oi,ih -> oh", self.connection_matrix, prev_outs)
         # new_ins = einsum("mi,mi->mi", new_ins, x)
         new_outs = []
-        for model, x, states in zip(self.archetipes, new_ins, prev_states):
-            x = rearrange(x, "in_dim -> 1 in_dim")
-            states = model.cell(x, states[0], states[1])
+        #x = rearrange(x, "in_dim -> 1 in_dim")
+        x = x.unsqueeze(0)  # shape (1, in_dim)
+        for model, fb, states in zip(self.archetipes, feedback, prev_states):
+            states = model.cell(x, states[0], states[1], fb)
             new_outs.append(torch.concat(states))
-
-        return torch.stack(new_outs), new_ins
+        return torch.stack(new_outs), feedback
     
     def forward(self, x:torch.Tensor, initial_states, initial_outs=None):
         """Forward of the network
@@ -72,25 +78,28 @@ class ArchetipesNetwork(nn.Module):
             input_list.append(ins)
         return state_list, input_list
     
-    def __iter__(self):
-        for model in self.archetipes:
-            yield(model)
-
 
 
 def main():
-    N_MODULES = 10
-    HDIM = 16
-    SEQ_LEN = 100
-    from acds.archetypes import ReservoirCell
+    N_MODULES = 2
+    HDIM = 2
+    SEQ_LEN = 3000
+    from acds.archetypes import InterconnectionRON
     from acds.networks.connection_matrices import cycle_matrix
-    archetypes = [ReservoirCell(HDIM, HDIM) for _ in range(N_MODULES)]
+    archetypes = [
+        InterconnectionRON(HDIM, HDIM, dt=1, gamma=0.9, epsilon=0.5)
+        for _ in range(N_MODULES)
+    ]
     connection_matrix = cycle_matrix(N_MODULES)
     net = ArchetipesNetwork(archetypes, connection_matrix)
     print(net.archetipes)
-    states = torch.stack([torch.empty(HDIM).normal_() for _ in range(N_MODULES)])
-    x = torch.empty(SEQ_LEN, HDIM).normal_(0, 0.01)
-    print(len(net.forward(x, states)))
+    for i in tqdm(range(100)):
+        x = torch.randn((SEQ_LEN, HDIM))
+        initial_states = torch.zeros((N_MODULES, 2, HDIM))
+        states, ins = net(x, initial_states)
+        
+    
+
 
 if __name__ == "__main__":
     main()

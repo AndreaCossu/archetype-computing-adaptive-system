@@ -163,3 +163,61 @@ class RandomizedOscillatorsNetwork(nn.Module):
         return torch.stack(all_states, dim=1), [
             hy
         ]  # list to be compatible with ESN implementation
+
+
+class InterconnectionRON(RandomizedOscillatorsNetwork):
+    def cell(
+        self, x: torch.Tensor, hy: torch.Tensor, hz: torch.Tensor, feedback: Optional[torch.Tensor]
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        """Compute the next hidden state and its derivative.
+
+        Args:
+            x (torch.Tensor): Input tensor.
+            hy (torch.Tensor): Current hidden state.
+            hz (torch.Tensor): Current hidden state derivative.
+            feedback (torch.Tensor, optional): Feedback tensor from the incoming modules.
+                If None, no feedback is applied. Defaults to None.
+        """
+        if feedback is None:
+            feedback = torch.Tensor(0.0)
+        hz = hz + self.dt * (
+            torch.tanh(
+                torch.matmul(x, self.x2h)
+                + torch.matmul(hy, self.h2h - self.diffusive_matrix)
+                + feedback
+                + self.bias
+            )
+            - self.gamma * hy
+            - self.epsilon * hz
+        )
+
+        hy = hy + self.dt * hz
+        return hy, hz
+    
+    def forward(self, x: torch.Tensor, hs: Optional[Tuple[torch.Tensor, torch.Tensor]] = None, feedback: Optional[torch.Tensor]=None) -> Tuple[torch.Tensor, List[torch.Tensor]]:
+        """Forward pass on a given input time-series.
+
+        Args:
+            x (torch.Tensor): Input time-series
+            hs (tuple, optional): Tuple containing the initial hidden states.
+                If None, both are initialized to zero. Defaults to None.
+            feedback (torch.Tensor, optional): Feedback tensor from the incoming modules.
+                If None, no feedback is applied. Defaults to None.
+        Returns:
+            torch.Tensor: Hidden states of the network shaped as (batch, time, n_hid).
+            list: List containing the last hidden state of the network.
+        """
+        if hs is None:
+            hy = torch.zeros(x.size(0), self.n_hid).to(self.device)
+            hz = torch.zeros(x.size(0), self.n_hid).to(self.device)
+        else:
+            hy, hz = hs
+
+        all_states = []
+        for t in range(x.size(1)):
+            hy, hz = self.cell(x[:, t], hy, hz, feedback)
+            all_states.append(hy)
+
+        return torch.stack(all_states, dim=1), [
+            hy
+        ]  # list to be compatible with ESN implementation
