@@ -1,4 +1,4 @@
-from .ron import RandomizedOscillatorsNetwork
+from .ron import RandomizedOscillatorsNetwork, InterconnectionRON
 from .pron import (PhysicallyImplementableRandomizedOscillatorsNetwork,
                    MultistablePhysicallyImplementableRandomizedOscillatorsNetwork)
 from .trainable_pron import TrainedPhysicallyImplementableRandomizedOscillatorsNetwork
