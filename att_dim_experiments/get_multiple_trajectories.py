@@ -79,6 +79,9 @@ def collect_trajectories_grid(
     rho_list: List[float],
     input_scaling_list: List[float],
     mixing_scaling_list: List[float],
+    dt_list: List[float],
+    gamma_list: List[Tuple[float, float]],
+    epsilon_list: List[Tuple[float, float]],
     base_network_kwargs: Dict,
     n_seeds: int = 1,
     use_same_input: bool = False,
@@ -142,26 +145,47 @@ def collect_trajectories_grid(
                 raise ValueError("Invalid input_type specified.")
     
     # Grid search over hyperparameters
-    total_configs = len(n_modules_list) * len(n_hid_list) * len(rho_list) * len(input_scaling_list) * len(mixing_scaling_list)
+    total_configs = (len(n_modules_list) * 
+                    len(n_hid_list) * 
+                    len(rho_list) * 
+                    len(input_scaling_list) * 
+                    len(mixing_scaling_list) *
+                    len(dt_list) *
+                    len(gamma_list) *
+                    len(epsilon_list)
+        )
     config_idx = 0
     hyperparameter_product = product(
         n_modules_list,
         n_hid_list,
         rho_list,
         input_scaling_list,
-        mixing_scaling_list
+        mixing_scaling_list,
+        dt_list,
+        gamma_list,
+        epsilon_list
     )
-    for (n_modules, n_hid, rho, input_scaling, mixing_scaling) in hyperparameter_product:
-                    # Prepare network kwargs
+    for (n_modules, 
+        n_hid, 
+        rho, 
+        input_scaling, 
+        mixing_scaling,
+        dt,
+        gamma,
+        epsilon
+    ) in hyperparameter_product:
+        # Prepare network kwargs
         network_kwargs = {
             **base_network_kwargs,
             'n_modules': n_modules,
             'n_hid': n_hid,
             'rho': rho,
             'rho_m': mixing_scaling,
-            'input_scaling': input_scaling
+            'input_scaling': input_scaling,
+            'dt': dt,
+            'gamma': gamma,
+            'epsilon': epsilon
         }
-                    # Prepare network kwargs
         network = get_model(
             network_kwargs,
             n_inp=in_dim,
@@ -197,6 +221,9 @@ def collect_trajectories_grid(
                 'input_scaling': input_scaling,
                 'mixing_scaling': mixing_scaling,
                 'seed': seed,
+                'dt': dt,
+                'gamma': gamma,
+                'epsilon': epsilon
             })
 
     return results
@@ -225,16 +252,16 @@ if __name__ == "__main__":
                         help="List of n_modules values")
     parser.add_argument("--n_hid_list", type=int, nargs="+", default=[3],
                         help="List of hidden dimension values")
-    parser.add_argument("--rho_list", type=float, nargs="+", default=[0.5, 0.9, 0.99, 1.0, 2.0],
+    parser.add_argument("--rho_list", type=float, nargs="+", default=[0.9, 0.99, 9.0],
                         help="List of rho values")
-    parser.add_argument("--input_scaling_list", type=float, nargs="+", default=[0.01, 0.1, 1.0, 10.0],
+    parser.add_argument("--input_scaling_list", type=float, nargs="+", default=[1.0],
                         help="List of input scaling values")
-    parser.add_argument("--mixing_scaling_list", type=float, nargs="+", default=[0.1, 0.5, 1.0, 2.0],)
+    parser.add_argument("--mixing_scaling_list", type=float, nargs="+", default=[1.0, 2.0])
     # Fixed network parameters
+    parser.add_argument("--dt_list", type=tuple, nargs="+", default=[0.2, 0.05, 0.01])
+    parser.add_argument("--epsilon_list", type=float, nargs="+", default=[(0., 10.), (4.5, 5.5), (0., 1.)])
+    parser.add_argument("--gamma_list", type=float, nargs="+", default=[(2., 4.), (2.5, 3.5), (0.5, 1.5)])
     group = parser.add_argument_group("fixed_network_args")
-    group.add_argument("--dt", type=float, default=1.0)
-    group.add_argument("--gamma", type=float, default=1.0)
-    group.add_argument("--epsilon", type=float, default=1.0)
     group.add_argument("--diffusive_gamma", type=float, default=0.0)
     group.add_argument("--connection_matrix", type=str, default="cycle",
                        choices=["random", "full", "cycle"])
@@ -243,9 +270,6 @@ if __name__ == "__main__":
     
     # Prepare base network kwargs (fixed parameters)
     base_network_kwargs = {
-        'dt': args.dt,
-        'gamma': args.gamma,
-        'epsilon': args.epsilon,
         'diffusive_gamma': args.diffusive_gamma,
         'connection_matrix': args.connection_matrix,
         'p': args.p
@@ -277,6 +301,9 @@ if __name__ == "__main__":
             input_scaling_list=args.input_scaling_list,
             base_network_kwargs=base_network_kwargs,
             mixing_scaling_list=args.mixing_scaling_list,
+            dt_list=args.dt_list,
+            gamma_list=args.gamma_list,
+            epsilon_list=args.epsilon_list,
             n_seeds=args.n_seeds,
             use_same_input=args.use_same_input
         )
