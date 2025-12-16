@@ -6,9 +6,24 @@ sys.path.append("..")
 from typing import List, Sequence
 from torch import nn
 from acds.archetypes import InterconnectionRON as RON
-
+from torch.func import functional_call, vmap
 from einops import einsum, rearrange # I like using einops because it allows strings as axes names instead of just letters, and for other stuff
+from functools import partial
+from acds.networks.utils import stack_state
 # from torch import einsum
+
+# Utility class to make stuff work:
+# torch.func.functional_call requires a callable nn.Module as a function, but we want to call RON.cell 
+
+class Cell(nn.Module):
+    def __init__(self, ron):
+        super().__init__()
+        self.ron = ron
+    def __call__(self, *args):
+        return self.ron.cell(*args)
+
+
+
 class ArchetipesNetwork(nn.Module):
     def __init__(
         self,
@@ -23,11 +38,14 @@ class ArchetipesNetwork(nn.Module):
             connections (torch.Tensor): A NxN binary matrix specifying how the archetipes are connected
         """
         super().__init__()
-        self.archetipes = archetypes
-        self.n_hid = self.archetipes[0].n_hid
-        self.n_inp = self.archetipes[0].n_inp
+        params, buffers = stack_state(archetypes)
+        self.archetype_structure = Cell(archetypes[0])
+        self.archetipes_params = params
+        self.archetipes_buffers = buffers 
+        self.n_hid = archetypes[0].n_hid
+        self.n_inp = archetypes[0].n_inp
         self.n_modules = len(archetypes)
-        self.connection_matrix = nn.Parameter(connection_matrix)
+        self.interconnection_matrix = nn.Parameter(connection_matrix)
         self.wm = torch.nn.Linear(self.n_hid, self.n_hid, bias=False)
         spec_rad = torch.linalg.eigvals(self.wm.weight).abs().max()
         self.wm.weight.data *= rho_m / spec_rad # rescale to have spectral radius rho_m
@@ -41,19 +59,23 @@ class ArchetipesNetwork(nn.Module):
             prev_states(Tensor of shape (n_modules, n_states, h_dim)): state(s) for each archetipe at time t-1, which are also the outputs
             prev_outs (Tensor of shape (n_modules, h_dim)): output of the models in the previous timestep, (e.g. h for ESN or h_y for RON)
         """
-        prev_outs_transformed = self.wm(prev_outs) # transform the outputs before feeding them back
-        feedback = self.connection_matrix @ prev_outs_transformed 
-        #feedback = einsum(self.connection_matrix, prev_outs_transformed, "exp_out exp_in, exp_in hdim -> exp_out hdim") # actually implementable simply with matmul idk if it's more efficient
-        # torch version of einsum
-        # new_ins = einsum("oi,ih -> oh", self.connection_matrix, prev_outs)
-        # new_ins = einsum("mi,mi->mi", new_ins, x)
-        new_outs = []
-        #x = rearrange(x, "in_dim -> 1 in_dim")
-        x = x.unsqueeze(0)  # shape (1, in_dim)
-        for model, fb, states in zip(self.archetipes, feedback, prev_states):
-            states = model.cell(x, states[0], states[1], fb)
-            new_outs.append(torch.concat(states))
-        return torch.stack(new_outs), feedback
+
+        prev_outs = self.wm(prev_outs) # transform the outputs before feeding them back
+        ic_feedback = einsum(self.interconnection_matrix, prev_outs, "n_modules_in n_modules_out, n_modules_out n_hid -> n_modules_in n_hid") # inter-connection feedback
+
+        @partial(vmap, in_dims=(None, 0, 0, None, 0, 0))
+        def call_module(model, params, buffers, x, hs, feedback):
+            new_states = functional_call(model, (params, buffers), (x, hs[0], hs[1], feedback))
+            return torch.stack(new_states)
+        return call_module(self.archetype_structure, self.archetipes_params, self.archetipes_buffers, x, prev_states, ic_feedback), ic_feedback
+        
+
+         
+        
+
+        
+
+
     
     def forward(self, x:torch.Tensor, initial_states, initial_outs=None):
         """Forward of the network
