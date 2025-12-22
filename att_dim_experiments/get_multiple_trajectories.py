@@ -248,19 +248,19 @@ if __name__ == "__main__":
     parser.add_argument("--only_load", action="store_true", 
                         help="Only load existing results without collecting new ones")
     # Hyperparameter ranges
-    parser.add_argument("--n_modules_list", type=int, nargs="+", default=[16, 8, 4, 2, 1],
+    parser.add_argument("--n_modules_list", type=int, nargs="+", default=[32, 64, 128],
                         help="List of n_modules values")
     parser.add_argument("--n_hid_list", type=int, nargs="+", default=[3],
                         help="List of hidden dimension values")
-    parser.add_argument("--rho_list", type=float, nargs="+", default=[0.9, 0.99, 9.0],
+    parser.add_argument("--rho_list", type=float, nargs="+", default=[0.5, 0.9, 0.99, 1., 2.],
                         help="List of rho values")
-    parser.add_argument("--input_scaling_list", type=float, nargs="+", default=[1.0],
+    parser.add_argument("--input_scaling_list", type=float, nargs="+", default=[0.1, 1.0, 10.],
                         help="List of input scaling values")
-    parser.add_argument("--mixing_scaling_list", type=float, nargs="+", default=[1.0, 2.0])
+    parser.add_argument("--mixing_scaling_list", type=float, nargs="+", default=[0.1, 0.5, 1.0, 2.0])
     # Fixed network parameters
-    parser.add_argument("--dt_list", type=tuple, nargs="+", default=[0.2, 0.05, 0.01])
-    parser.add_argument("--epsilon_list", type=float, nargs="+", default=[(0., 10.), (4.5, 5.5), (0., 1.)])
-    parser.add_argument("--gamma_list", type=float, nargs="+", default=[(2., 4.), (2.5, 3.5), (0.5, 1.5)])
+    parser.add_argument("--dt_list", type=tuple, nargs="+", default=[1.])
+    parser.add_argument("--epsilon_list", type=float, nargs="+", default=[1.])
+    parser.add_argument("--gamma_list", type=float, nargs="+", default=[1.])
     group = parser.add_argument_group("fixed_network_args")
     group.add_argument("--diffusive_gamma", type=float, default=0.0)
     group.add_argument("--connection_matrix", type=str, default="cycle",
