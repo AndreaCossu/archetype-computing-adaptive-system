@@ -6,6 +6,8 @@ from tqdm import tqdm
 import os
 from experiments.attractors_single import pca
 from acds.archetypes.ron import RandomizedOscillatorsNetwork
+from acds.networks.archetipes_network import ArchetipesNetwork
+from acds.networks.connection_matrices import cycle_matrix
 from collections import defaultdict
 
 
@@ -68,6 +70,7 @@ def main(args):
     random.seed(args.seed)
     np.random.seed(args.seed)
 
+    # define a list of models
     models = []
     for _ in range(args.n_modules):
         ron = RandomizedOscillatorsNetwork(
@@ -82,42 +85,25 @@ def main(args):
         )
         ron.bias = torch.nn.Parameter(torch.zeros(args.n_hid).to(args.device), requires_grad=False)
         models.append(ron)
+    connection_matrix = cycle_matrix(args.n_modules) # make a param for connection type?
+    network = ArchetipesNetwork(models, connection_matrix)
+    x = torch.randn((args.timesteps, args.n_modules, args.n_hid)) # same input for each initialization
+    initial_states = torch.rand(args.n_init_states, args.n_modules, 2, args.n_hid) * 2 - 1
+    print(x.shape)
 
-    all_states = defaultdict(list)
-    input_signals = {i: [] for i in range(args.n_modules)}
-    for it in tqdm(range(args.n_init_states), desc="Computing trajectories"):
-        # Random initial hidden states for both networks in [-1, 1]
-        hs = []
-        for _ in range(args.n_modules):
-            h = (
-                torch.rand(1, args.n_hid, device=args.device) * 2 - 1,
-                torch.rand(1, args.n_hid, device=args.device) * 2 - 1
-            )
-            hs.append(h)
-
-        states = defaultdict(list)
-        inputs = {i: [] for i in range(args.n_modules)}
-        with torch.no_grad():
-            for t in range(args.timesteps):
-                for i in range(args.n_modules):
-                    input_idx = (i - 1) % args.n_modules  # Ring topology
-                    input_signal = hs[input_idx][0] + torch.randn_like(hs[input_idx][0]) # noise mean 0 variance 1
-                    hy, hz = models[i].cell(input_signal, hs[i][0], hs[i][1])
-                    hs[i] = (hy, hz)
-                    states[i].append(hy)
-                    inputs[i].append(input_signal)
-        for i in range(args.n_modules):
-            
-            traj_inp = torch.cat(inputs[i][args.washout:], dim=0)  # shape (timesteps - washout, n_hid)
-            input_signals[i].append(traj_inp)
-
-        hidden_states = {}
-        for i in range(args.n_modules):
-            hidden_states[i] = torch.stack(states[i], dim=1)[:, args.washout:, :].cpu().numpy().squeeze(0)
-            all_states[i].append(hidden_states[i])
-    breakpoint()
-    torch.save(input_signals, os.path.join(out_dir, f"input_signals.pt"))
-
+    def retrieve_states(x, initial_states):
+        all_states, input_signals = network.forward(x, initial_states)
+        all_states = torch.stack(all_states).permute(1, 0, 2, 3) # (n_modules, seq_len, 2, hdim)
+        all_states = all_states[:, :, 0] # take just the first (hy)
+        return all_states, input_signals
+    
+    all_states, input_signals = torch.vmap(retrieve_states, in_dims=(None, 0)
+                                           )(x, initial_states)
+    
+    input_signals = torch.stack(input_signals).permute(2, 1, 0, 3).detach().numpy()
+    input_signals_dict = {i: tensor for i, tensor in enumerate(input_signals)} # reshape and put input_signals in a dictionary indexed by modules
+    torch.save(input_signals_dict, os.path.join(out_dir, f"input_signals.pt"))
+    all_states =  all_states.permute(1, 0, 2, 3).detach().numpy()
     for i in range(args.n_modules):
         np.save(os.path.join(out_dir, f"all_states{i}.npy"), all_states[i])
 
@@ -128,27 +114,32 @@ def main(args):
     plot_combined_pca(pca_results, out_dir, labels=[f"{i}" for i in range(args.n_modules)])
 
     for i, ron in enumerate(models):
+        print(i)
         np.savetxt(os.path.join(out_dir, f"W_{i}.csv"), ron.h2h.detach().cpu().numpy(), delimiter=',', fmt="%.6f")
         np.savetxt(os.path.join(out_dir, f"V_{i}.csv"), ron.x2h.detach().cpu().numpy(), delimiter=',', fmt="%.6f")
         np.savetxt(os.path.join(out_dir, f"b_{i}.csv"), ron.bias.detach().cpu().numpy(), delimiter=',', fmt="%.6f")
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Run RandomizedOscillatorsNetwork with configurable parameters.")
-    parser.add_argument("--seed", type=int, default=42, help="Random seed")
-    parser.add_argument("--n_hid", type=int, default=10, help="Number of hidden units")
-    parser.add_argument("--dt", type=float, default=1, help="Time step")
-    parser.add_argument("--rho", type=float, default=0.4, help="Spectral radius")
-    parser.add_argument("--inp_scaling", type=float, default=0.1, help="Input scaling")
-    parser.add_argument("--gamma", type=float, default=1, help="Damping factor")
-    parser.add_argument("--epsilon", type=float, default=1, help="Stiffness factor")
-    parser.add_argument("--device", type=str, default="cpu", help="Device to run the model on")
-    parser.add_argument("--timesteps", type=int, default=3000, help="Number of time steps")
-    parser.add_argument("--washout", type=int, default=1000, help="Time steps to washout")
-    parser.add_argument("--n_init_states", type=int, default=1000, help="Number of initial states to generate")
-    parser.add_argument("--n_modules", type=int, default=2, help="Number of modules to use")
-    parser.add_argument("--pca_dim", type=int, default=2, help="Number of PCA dimensions")
-    parser.add_argument("--suffix", type=str, default="", help="Suffix for output files")
-    args = parser.parse_args()
 
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Run attractors general experiment.")
+    
+    parser.add_argument('--n_modules', type=int, required=True, help='Number of modules')
+    parser.add_argument('--rho', type=float, required=True, help='Parameter rho')
+    parser.add_argument('--n_hid', type=int, required=True, help='Number of hidden units')
+    parser.add_argument('--timesteps', type=int, required=True, help='Number of timesteps')
+    parser.add_argument('--inp_scaling', type=float, default=1.0, help='Input scaling factor')
+    parser.add_argument('--suffix', type=str, default='', help='Suffix for output directory')
+    parser.add_argument('--seed', type=int, default=42, help='Random seed')
+    parser.add_argument('--dt', type=float, default=1.0, help='Time step size')
+    parser.add_argument('--gamma', type=float, default=0.1, help='Parameter gamma')
+    parser.add_argument('--epsilon', type=float, default=0.01, help='Parameter epsilon')
+    parser.add_argument('--device', type=str, default='cpu', help='Device (e.g., cpu, cuda)')
+    parser.add_argument('--pca_dim', type=int, default=2, help='PCA dimensionality')
+    parser.add_argument('--washout', type=int, default=0, help='Number of washout timesteps')
+    parser.add_argument("--n_init_states", type=int, default=1000, help="Number of initial states to generate")
+
+    args = parser.parse_args()
+    print(args)
     main(args)
