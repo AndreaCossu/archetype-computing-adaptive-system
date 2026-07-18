@@ -2,6 +2,7 @@ from .ron import RandomizedOscillatorsNetwork
 from .pron import (PhysicallyImplementableRandomizedOscillatorsNetwork,
                    MultistablePhysicallyImplementableRandomizedOscillatorsNetwork)
 from .trainable_pron import TrainedPhysicallyImplementableRandomizedOscillatorsNetwork
+from .vdpon import VanDerPolOscillatorsNetwork
 from .hcornn import hcoRNN
 from .esn import DeepReservoir
 from .rnn import LSTM, RNN_DFA, GRU_DFA
