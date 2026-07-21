@@ -106,6 +106,14 @@ criterion_eval = torch.nn.L1Loss()
 
 @torch.no_grad()
 def test(dataset, target, classifier, scaler):
+    """Evaluate one-step Mackey-Glass prediction error.
+
+    :param dataset: Input time-series tensor.
+    :param target: Regression target tensor.
+    :param classifier: Fitted regressor exposing ``predict``.
+    :param scaler: Fitted scaler exposing ``transform``.
+    :return: L1 prediction error.
+    """
     dataset = dataset.reshape(1, -1, 1).to(device)
     target = target.reshape(-1, 1).numpy()
     activations = model(dataset)[0].cpu().numpy()

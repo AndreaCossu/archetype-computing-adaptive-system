@@ -85,6 +85,12 @@ criterion_train = torch.nn.MSELoss()
 
 @torch.no_grad()
 def test(data_loader, readout):
+    """Evaluate a trained readout on Mackey-Glass activations.
+
+    :param data_loader: Loader yielding Mackey-Glass batches.
+    :param readout: Trainable readout or regression head.
+    :return: L1 prediction error.
+    """
     activations, ys = [], []
     for x, y in tqdm(data_loader):
         x = x.to(device)

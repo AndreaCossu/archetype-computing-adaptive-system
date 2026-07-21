@@ -15,7 +15,8 @@ class RCDataset(torch.utils.data.Dataset):
     """A torch dataset to ease training and inference with Reservoir Computing models.
 
     This class assumes data to have the form:
-            [ (x1,y1), (x2,y2) ]
+    ``[(x1, y1), (x2, y2)]``
+
     where xi are inputs, and yi are targets.
     """
 

@@ -1,0 +1,63 @@
+body {
+  color: #20262e;
+}
+
+.wy-side-nav-search {
+  background: linear-gradient(135deg, #243b53 0%, #0f766e 100%);
+}
+
+.wy-side-nav-search > a,
+.wy-side-nav-search .wy-dropdown > a {
+  color: #ffffff;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.wy-nav-side {
+  background: #17202a;
+}
+
+.wy-menu-vertical a {
+  color: #d5dde7;
+}
+
+.wy-menu-vertical a:hover {
+  background: #0f766e;
+  color: #ffffff;
+}
+
+.wy-menu-vertical li.current > a,
+.wy-menu-vertical li.on a {
+  border-color: #14b8a6;
+  color: #17202a;
+}
+
+.wy-nav-content {
+  max-width: 1120px;
+}
+
+.rst-content h1,
+.rst-content h2,
+.rst-content h3 {
+  color: #17202a;
+  letter-spacing: 0;
+}
+
+.rst-content code.literal {
+  color: #0f766e;
+  background: #edf7f5;
+  border: 1px solid #cae8e4;
+}
+
+.rst-content dl.py.class,
+.rst-content dl.py.function,
+.rst-content dl.py.method {
+  border-left: 4px solid #14b8a6;
+  padding-left: 1rem;
+}
+
+.rst-content dl.py dt {
+  background: #f5faf9;
+  border-top: 1px solid #d8ede9;
+  color: #17202a;
+}

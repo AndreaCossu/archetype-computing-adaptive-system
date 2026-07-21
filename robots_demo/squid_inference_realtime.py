@@ -19,11 +19,22 @@ IGNORED_TARGET_COLUMN_NAMES = {'x', 'y', 'theta'}
 
 
 def file_signature(path):
+    """Return the modification-time and size signature for a file.
+
+    :param path: File path to inspect.
+    :return: Tuple ``(mtime_ns, size)``.
+    """
     stat = os.stat(path)
     return stat.st_mtime_ns, stat.st_size
 
 
 def wait_until_file_settles(path, settle_seconds):
+    """Wait until a file signature remains unchanged across one interval.
+
+    :param path: File path to monitor.
+    :param settle_seconds: Seconds to wait between signature checks.
+    :return: Stable file signature.
+    """
     previous_signature = file_signature(path)
     while True:
         time.sleep(settle_seconds)
@@ -34,12 +45,26 @@ def wait_until_file_settles(path, settle_seconds):
 
 
 def split_column_line(line, delimiter):
+    """Split one header or data line into stripped columns.
+
+    :param line: Input text line.
+    :param delimiter: Optional delimiter; whitespace splitting is used when
+        ``None``.
+    :return: List of stripped column strings.
+    """
     if delimiter is None:
         return line.strip().split()
     return [column.strip() for column in line.strip().split(delimiter)]
 
 
 def is_numeric_row(columns):
+    """Return whether a row contains at least one numeric value.
+
+    Empty columns are ignored.
+
+    :param columns: Iterable of column strings.
+    :return: ``True`` when every non-empty column parses as a float.
+    """
     saw_value = False
     try:
         for column in columns:
@@ -53,10 +78,25 @@ def is_numeric_row(columns):
 
 
 def normalize_column_name(column_name):
+    """Normalize a column name for layout detection.
+
+    :param column_name: Raw column name.
+    :return: Lowercase stripped column name.
+    """
     return column_name.strip().lower()
 
 
 def read_text_time_series_file(path, delimiter, skip_header):
+    """Read a delimited text time-series file.
+
+    The first non-numeric line is treated as a header and skipped
+    automatically.
+
+    :param path: Text file path.
+    :param delimiter: Optional delimiter passed to NumPy.
+    :param skip_header: Minimum number of header lines to skip.
+    :return: Tuple ``(data, column_names, first_data_file_row)``.
+    """
     column_names = None
     auto_skip_header = 0
     with open(path, 'r') as input_file:
@@ -80,6 +120,15 @@ def read_text_time_series_file(path, delimiter, skip_header):
 
 
 def read_time_series_file(path, delimiter, skip_header, npz_key):
+    """Read a time-series table from text, ``.npy``, or ``.npz`` input.
+
+    :param path: Input file path.
+    :param delimiter: Optional delimiter for text input.
+    :param skip_header: Header rows skipped for text input.
+    :param npz_key: Optional key for ``.npz`` archives.
+    :return: Tuple ``(data, column_names, first_data_file_row)``.
+    :raises ValueError: If the loaded data is not two-dimensional.
+    """
     extension = os.path.splitext(path)[1].lower()
     if extension == '.npy':
         data = np.load(path)
@@ -112,6 +161,13 @@ def read_time_series_file(path, delimiter, skip_header, npz_key):
 
 
 def checkpoint_feature_indices(inference_state):
+    """Extract ordered input feature indices from a checkpoint state.
+
+    :param inference_state: State returned by
+        ``load_center_cycle_for_inference``.
+    :return: Ordered unique feature indices expected by the model.
+    :raises ValueError: If no feature indices are present.
+    """
     feature_indices = []
     for stats in inference_state['normalization_stats']['features']:
         for feature_idx in stats['feature_idxs']:
@@ -123,6 +179,15 @@ def checkpoint_feature_indices(inference_state):
 
 
 def make_expected_time_series(feature_values, time_values, feature_indices):
+    """Build the model input table expected by center-cycle inference.
+
+    :param feature_values: Compact feature matrix ordered like
+        ``feature_indices``.
+    :param time_values: Time column values.
+    :param feature_indices: Model feature positions in the checkpoint layout.
+    :return: Time column plus zero-filled model feature columns.
+    :raises ValueError: If the compact feature count does not match.
+    """
     expected_no_time_columns = max(feature_indices) + 1
     if feature_values.shape[1] != len(feature_indices):
         raise ValueError(
@@ -144,10 +209,20 @@ def make_expected_time_series(feature_values, time_values, feature_indices):
 
 
 def generated_time_values(row_count):
+    """Generate default monotonic time values for rows without timestamps.
+
+    :param row_count: Number of rows.
+    :return: Float32 array ``[0, 1, ..., row_count - 1]``.
+    """
     return np.arange(row_count, dtype=np.float32)
 
 
 def finite_true_positions_or_none(true_positions):
+    """Return finite true positions or ``None`` when unavailable.
+
+    :param true_positions: Optional true ``x,y`` position array.
+    :return: Float32 positions, or ``None`` if missing/all-NaN.
+    """
     if true_positions is None:
         return None
     true_positions = np.asarray(true_positions, dtype=np.float32)
@@ -157,6 +232,14 @@ def finite_true_positions_or_none(true_positions):
 
 
 def adapt_named_time_series(data, column_names, feature_indices):
+    """Adapt a named-column table to the checkpoint input layout.
+
+    :param data: Raw numeric table.
+    :param column_names: Column names from the input file.
+    :param feature_indices: Model feature positions in the checkpoint layout.
+    :return: Tuple ``(model_time_series, true_positions, layout_description)``;
+        ``model_time_series`` is ``None`` when the named layout is incompatible.
+    """
     normalized_names = [
         normalize_column_name(column_name)
         for column_name in column_names
@@ -230,6 +313,17 @@ def adapt_named_time_series(data, column_names, feature_indices):
 
 
 def adapt_numeric_time_series(data, feature_indices):
+    """Adapt a numeric table by inferring one of the supported layouts.
+
+    Supported layouts include full tables with time/x/y(/theta), compact
+    feature-only tables, and compact tables with a leading time column.
+
+    :param data: Raw numeric table.
+    :param feature_indices: Model feature positions in the checkpoint layout.
+    :return: Tuple ``(model_time_series, true_positions, layout_description)``.
+    :raises ValueError: If the column count does not match any supported
+        layout.
+    """
     expected_no_time_columns = max(feature_indices) + 1
     expected_time_columns = expected_no_time_columns + 1
     full_without_theta_time_columns = expected_time_columns - 1
@@ -300,6 +394,16 @@ def adapt_numeric_time_series(data, feature_indices):
 
 
 def adapt_time_series_for_inference(data, column_names, inference_state):
+    """Adapt raw input data to the model layout used for inference.
+
+    Named-column detection is attempted first when names are available, then
+    numeric-layout inference is used as a fallback.
+
+    :param data: Raw numeric table.
+    :param column_names: Optional input column names.
+    :param inference_state: Loaded checkpoint inference state.
+    :return: Tuple ``(model_time_series, true_positions, layout_description)``.
+    """
     feature_indices = checkpoint_feature_indices(inference_state)
     if column_names is not None:
         model_time_series, true_positions, layout_description = (
@@ -312,6 +416,15 @@ def adapt_time_series_for_inference(data, column_names, inference_state):
 
 
 def predict_window_targeting_row(time_series, target_row_index, inference_state, window_size):
+    """Predict the target position for a row using prior-window context.
+
+    :param time_series: Adapted model input table.
+    :param target_row_index: Row index whose prediction should be emitted.
+    :param inference_state: Loaded checkpoint inference state.
+    :param window_size: Number of prior rows required for the prediction.
+    :return: Predicted ``x,y`` values, or ``None`` when insufficient history is
+        available.
+    """
     window_end = target_row_index
     if window_end < window_size:
         return None
@@ -327,6 +440,13 @@ def predict_window_targeting_row(time_series, target_row_index, inference_state,
 
 
 def data_row_to_file_row(path, data_row_index, first_data_file_row):
+    """Map a zero-based data row index to a user-facing file row number.
+
+    :param path: Input file path.
+    :param data_row_index: Zero-based row index in the loaded data array.
+    :param first_data_file_row: One-based first data row for text files.
+    :return: One-based row number for logging.
+    """
     extension = os.path.splitext(path)[1].lower()
     if extension in {'.npy', '.npz'}:
         return data_row_index + 1
@@ -339,6 +459,13 @@ def save_realtime_gif(
     interval_seconds,
     true_positions=None,
 ):
+    """Write an animated trajectory GIF atomically.
+
+    :param predictions: Sequence of predicted ``x,y`` positions.
+    :param gif_file: Output GIF path.
+    :param interval_seconds: Frame interval for the animation.
+    :param true_positions: Optional true ``x,y`` positions to overlay.
+    """
     predictions = np.asarray(predictions, dtype=np.float32)
     update_numbers = np.arange(len(predictions))
     if true_positions is not None:
@@ -363,6 +490,12 @@ def save_realtime_gif(
 
 
 def normalize_target_values(values, normalization_stats):
+    """Normalize target-space values with checkpoint statistics.
+
+    :param values: Values in original target units.
+    :param normalization_stats: Checkpoint normalization metadata.
+    :return: Normalized values.
+    """
     target_stats = normalization_stats['target']
     mean = np.asarray(target_stats['mean'], dtype=np.float32)
     std = np.asarray(target_stats['std'], dtype=np.float32)
@@ -378,6 +511,14 @@ def save_normalized_realtime_gif(
     normalization_stats,
     true_positions=None,
 ):
+    """Normalize predictions and save a trajectory GIF.
+
+    :param predictions: Sequence of predicted positions in original units.
+    :param gif_file: Output GIF path.
+    :param interval_seconds: Frame interval for the animation.
+    :param normalization_stats: Checkpoint normalization metadata.
+    :param true_positions: Optional true positions in original units.
+    """
     normalized_predictions = normalize_target_values(
         predictions,
         normalization_stats,
@@ -402,6 +543,13 @@ def save_realtime_gifs(
     normalization_stats,
     true_positions=None,
 ):
+    """Save raw and optionally normalized realtime trajectory GIFs.
+
+    :param predictions: Sequence of predicted positions.
+    :param args: Parsed CLI namespace with GIF output settings.
+    :param normalization_stats: Checkpoint normalization metadata.
+    :param true_positions: Optional true positions.
+    """
     save_realtime_gif(
         predictions,
         gif_file=args.gif_file,
@@ -421,6 +569,12 @@ def save_realtime_gifs(
 
 
 def gif_true_positions_or_none(predictions, true_positions):
+    """Return true positions only when aligned with predictions.
+
+    :param predictions: Prediction history.
+    :param true_positions: True-position history.
+    :return: Float32 true positions, or ``None`` if unusable.
+    """
     if len(true_positions) != len(predictions):
         return None
     true_positions = np.asarray(true_positions, dtype=np.float32)
@@ -430,6 +584,13 @@ def gif_true_positions_or_none(predictions, true_positions):
 
 
 def normalized_target_rmse(prediction, true_position, normalization_stats):
+    """Compute RMSE in normalized target space.
+
+    :param prediction: Predicted target values in original units.
+    :param true_position: True target values in original units.
+    :param normalization_stats: Checkpoint normalization metadata.
+    :return: Normalized root mean squared error.
+    """
     normalized_prediction = normalize_target_values(
         prediction,
         normalization_stats,
@@ -444,6 +605,11 @@ def normalized_target_rmse(prediction, true_position, normalization_stats):
 
 
 def default_normalized_gif_file(gif_file):
+    """Create a default normalized-GIF path from the raw GIF path.
+
+    :param gif_file: Raw GIF output path.
+    :return: Path with ``_normalized`` before the extension.
+    """
     gif_root, gif_extension = os.path.splitext(gif_file)
     if gif_extension:
         return f'{gif_root}_normalized{gif_extension}'
@@ -451,6 +617,12 @@ def default_normalized_gif_file(gif_file):
 
 
 def gif_update_message(args, prediction_count):
+    """Build the inline log suffix for a GIF update.
+
+    :param args: Parsed CLI namespace with GIF output settings.
+    :param prediction_count: Number of predictions written to the GIF.
+    :return: Message suffix.
+    """
     if args.normalized_gif:
         return (
             f'; updated {args.gif_file} and {args.normalized_gif_file} '
@@ -460,6 +632,12 @@ def gif_update_message(args, prediction_count):
 
 
 def final_gif_update_message(args, prediction_count):
+    """Build the final log message for a last GIF update.
+
+    :param args: Parsed CLI namespace with GIF output settings.
+    :param prediction_count: Number of predictions written to the GIF.
+    :return: Final update message.
+    """
     if args.normalized_gif:
         return (
             f'Updated {args.gif_file} and {args.normalized_gif_file} with '
@@ -477,6 +655,14 @@ def should_save_gif_for_batch(
     batch_prediction_count,
     save_interval,
 ):
+    """Return whether a GIF should be refreshed for a batch position.
+
+    :param batch_row_count: Number of newly available rows in the batch.
+    :param batch_processed_rows: Number of rows processed in the batch.
+    :param batch_prediction_count: Number of predictions emitted in the batch.
+    :param save_interval: Refresh interval for large batches.
+    :return: ``True`` when the GIF should be saved now.
+    """
     if batch_row_count <= save_interval:
         return True
     return (
@@ -486,6 +672,11 @@ def should_save_gif_for_batch(
 
 
 def run_realtime_inference(args):
+    """Watch an input file and emit center-cycle predictions as rows arrive.
+
+    :param args: Parsed CLI namespace containing file, checkpoint, polling,
+        window, GIF, and device settings.
+    """
     if not args.show:
         matplotlib.use('Agg')
 
@@ -664,6 +855,10 @@ def run_realtime_inference(args):
 
 
 def main():
+    """Parse CLI arguments and start realtime squid inference.
+
+    :raises ValueError: If CLI values are inconsistent or out of range.
+    """
     parser = argparse.ArgumentParser(
         description='Watch a time-series file and update a squid prediction GIF'
     )

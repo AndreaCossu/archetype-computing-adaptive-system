@@ -12,6 +12,13 @@ from sklearn.preprocessing import LabelEncoder
 
 
 def normalize_features(d, mean=None, std=None):
+    """Standardize sequence features across samples and timesteps.
+
+    :param d: Array with shape ``(n_samples, timesteps, n_features)``.
+    :param mean: Optional feature mean from the training split.
+    :param std: Optional feature standard deviation from the training split.
+    :return: Tuple ``(normalized, mean, std)``.
+    """
     n_samples, timesteps, n_features = d.shape
     d_reshaped = d.reshape(-1, n_features)  # reshape to (n_samples * timesteps, n_features)
     if mean is None and std is None:
@@ -23,6 +30,15 @@ def normalize_features(d, mean=None, std=None):
 
 @torch.no_grad()
 def test(data_loader, classifier, scaler, label_encoder=None):
+    """Evaluate the cobot classifier on reservoir activations.
+
+    :param data_loader: Loader yielding normalized cobot sequences and labels.
+    :param classifier: Fitted classifier exposing ``predict``.
+    :param scaler: Fitted scaler exposing ``transform``.
+    :param label_encoder: Optional encoder used to decode labels before
+        scoring.
+    :return: Tuple ``(accuracy, decoded_targets, decoded_predictions)``.
+    """
     activations, ys = [], []
     for x, y in tqdm(data_loader):
         x = x.to(device)

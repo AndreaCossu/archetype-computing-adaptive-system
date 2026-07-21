@@ -93,6 +93,12 @@ device = (
 
 @torch.no_grad()
 def test(data_loader, readout):
+    """Evaluate a trained readout on Adiac reservoir activations.
+
+    :param data_loader: Loader yielding Adiac batches.
+    :param readout: Trainable readout module mapping activations to logits.
+    :return: Classification accuracy.
+    """
     model.noisy = args.noisy
     activations, ys = [], []
     for x, y in tqdm(data_loader):

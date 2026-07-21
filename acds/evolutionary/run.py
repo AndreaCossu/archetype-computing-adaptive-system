@@ -1,8 +1,14 @@
-from experiment import LifelongEvoSwarmExperiment
-from environment import SwarmForagingEnv
 import argparse
 import neat
-from utils import neat_sigmoid
+
+try:
+    from .experiment import LifelongEvoSwarmExperiment
+    from .environment import SwarmForagingEnv
+    from .utils import neat_sigmoid
+except ImportError:  # pragma: no cover - supports direct script execution.
+    from experiment import LifelongEvoSwarmExperiment
+    from environment import SwarmForagingEnv
+    from utils import neat_sigmoid
 
 def main(name, 
         steps,
@@ -21,6 +27,25 @@ def main(name,
         seed,
         workers, 
         ):
+    """Run a lifelong swarm-foraging NEAT experiment from CLI parameters.
+
+    :param name: Experiment name used in output paths.
+    :param steps: Maximum number of simulation steps per episode.
+    :param generations: Number of NEAT generations per season.
+    :param population_size: NEAT population size.
+    :param n_agents: Number of swarm agents.
+    :param n_blocks: Number of colored blocks in the arena.
+    :param n_envs: Number of evaluation environments per genome.
+    :param eval_retention: Optional retention-evaluation strategies.
+    :param regularization: Optional regularization strategy after drifts.
+    :param lambd: Regularization coefficient.
+    :param config_path: Path to the NEAT configuration file.
+    :param moredrifts: If ``True``, run four seasonal tasks instead of three.
+    :param retention_n_prev: Number of previous tasks used for retention.
+    :param reg_n_prevs: Number of previous models used for regularization.
+    :param seed: Random seed.
+    :param workers: Number of evaluation workers.
+    """
     
     print(f"Running experiment {name}")
     print(moredrifts)

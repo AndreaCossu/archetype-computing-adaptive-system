@@ -3,7 +3,10 @@ import numpy as np
 import gymnasium as gym
 from gymnasium import spaces
 
-from utils import visual_grid_to_image
+try:
+    from .utils import visual_grid_to_image
+except ImportError:  # pragma: no cover - supports direct script execution.
+    from utils import visual_grid_to_image
 
 TIME_STEP = 0.1 # a simulation step in seconds
 ROBOT_SIZE = 25 # in cm (diameter)
@@ -66,6 +69,31 @@ ROTATE_NEGATIVE = [3.14159265, 3.14159265, 3.14159265]
 
 # TODO: check for more speed optimization in the code
 class SwarmForagingEnv(gym.Env):
+    """Gymnasium environment for multi-agent colored-block foraging.
+
+    Agents move in a square arena with three omniwheel velocity commands,
+    observe nearby walls, robots, and blocks, and receive reward for
+    retrieving blocks whose color matches the current seasonal target.
+
+    :param target_color: Color id that currently defines the rewarded block.
+    :param size: Side length of the simulated square arena.
+    :param n_agents: Number of robots in the swarm.
+    :param n_blocks: Number of blocks placed in the arena.
+    :param n_neighbors: Number of nearest sensed entities reported per robot.
+    :param sensor_range: Maximum sensing distance in simulation units.
+    :param max_wheel_velocity: Maximum velocity for each omniwheel command.
+    :param sensitivity: Interaction radius for picking up blocks.
+    :param time_step: Duration of one simulation step in seconds.
+    :param duration: Maximum number of steps in one episode.
+    :param max_retrieves: Number of correct retrieves that terminates an episode.
+    :param colors: Available block color ids.
+    :param rate_target_block: Fraction of blocks using ``target_color``.
+    :param repositioning: If ``True``, retrieved blocks are respawned.
+    :param efficency_reward: If ``True``, add a completion-time reward.
+    :param see_other_agents: If ``True``, include nearby robots in observations.
+    :param blocks_in_line: If ``True``, initialize blocks along one line.
+    :param season_colors: Active subset of colors for the current season.
+    """
     
     def __init__(
             self, 
@@ -208,6 +236,13 @@ class SwarmForagingEnv(gym.Env):
             self.blocks_location[j] = [np.inf, np.inf]
     
     def create_initial_state(self):
+        """Create randomized starting positions, headings, and block colors.
+
+        :return: Dictionary with ``agents``, ``headings``, ``blocks``, and
+            ``colors`` arrays used by :meth:`reset`.
+        :raises ValueError: If ``blocks_in_line`` is requested with too many
+            blocks for the arena size.
+        """
         # Blocks
         # blocks_locations = np.zeros((self.n_blocks, 2), dtype=float)
         low = (6, 2)
@@ -347,6 +382,11 @@ class SwarmForagingEnv(gym.Env):
         return obs
     
     def reset(self, seed=None):
+        """Reset the episode state and compute the initial observations.
+
+        :param seed: Optional seed for the NumPy random generator.
+        :return: Pair ``(observations, info)`` following the Gymnasium API.
+        """
         
         self._rng = np.random.default_rng(seed=seed)
                 
@@ -376,6 +416,12 @@ class SwarmForagingEnv(gym.Env):
         return observations, info
 
     def step(self, action):
+        """Advance the swarm simulation by one time step.
+
+        :param action: Sequence of per-agent ``(v1, v2, v3)`` wheel
+            velocities.
+        :return: Tuple ``(observations, reward, done, truncated, info)``.
+        """
         
         self._rewards = np.zeros(self.n_agents)
         
@@ -463,6 +509,13 @@ class SwarmForagingEnv(gym.Env):
         return observations, reward, done, truncated, info
     
     def change_season(self, new_season_colors, new_target_color): # Drift season
+        """Switch the active block colors and target color.
+
+        :param new_season_colors: Color ids available in the new season.
+        :param new_target_color: Target color id rewarded in the new season.
+        :raises ValueError: If a color is outside the configured color set or
+            the target is not in ``new_season_colors``.
+        """
         for new_color in new_season_colors:
             if new_color not in self.colors:
                 raise ValueError(f"Invalid new season colors. Choose a color between {self.colors}")
@@ -472,6 +525,12 @@ class SwarmForagingEnv(gym.Env):
         self.target_color = new_target_color
 
     def render(self, show_info = False, verbose = True):
+        """Render the current arena state as a PIL image.
+
+        :param show_info: If ``True``, include retrieve counts in the image.
+        :param verbose: If ``True``, print the text grid to stdout.
+        :return: PIL image representing agents, blocks, and optional counts.
+        """
         # Define the size of the visualization grid
         vis_grid_size = 20 # Adjust based on desired resolution
 
@@ -515,6 +574,11 @@ class SwarmForagingEnv(gym.Env):
         return visual_grid_to_image(visual_grid, retrieves_info)
         
     def print_observations(self, verbose = True):
+        """Format the latest per-agent sensor readings as text.
+
+        :param verbose: If ``True``, print the formatted observations.
+        :return: Human-readable multiline observation summary.
+        """
         observations_text = ""
         for i in range(self.n_agents):
             flag = False
@@ -541,6 +605,14 @@ class SwarmForagingEnv(gym.Env):
         return observations_text
     
     def process_observation(self, obs, one_hot = True):
+        """Convert raw environment observations into neural-network features.
+
+        :param obs: Observation list returned by :meth:`reset` or
+            :meth:`step`.
+        :param one_hot: If ``True``, one-hot encode entity, carrying, and task
+            labels.
+        :return: Feature matrix with one row per agent.
+        """
         # Create structured arrays 
         neighbors = np.array([agent['neighbors'] for agent in obs])
         heading = np.array([agent['heading'] for agent in obs])
@@ -593,4 +665,9 @@ class SwarmForagingEnv(gym.Env):
         return flat_features
         
     def close(self):
+        """Close the environment.
+
+        The environment does not currently allocate external rendering
+        resources, so this method is a no-op kept for Gymnasium compatibility.
+        """
         pass

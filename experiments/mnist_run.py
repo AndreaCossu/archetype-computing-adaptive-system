@@ -49,6 +49,15 @@ EXPERIMENT_CONFIG = {
 
 
 def make_input_map(n_units, num_non_zero, min_value, max_value, device):
+    """Create a sparse random input map for a unicycle reservoir.
+
+    :param n_units: Number of reservoir units.
+    :param num_non_zero: Number of non-zero entries to sample.
+    :param min_value: Minimum sampled value.
+    :param max_value: Maximum sampled value.
+    :param device: Torch device for the returned tensor.
+    :return: Tensor with shape ``(1, n_units)``.
+    """
     input_map = torch.zeros(1, n_units, device=device)
     num_non_zero = min(max(num_non_zero, 0), n_units)
     if num_non_zero == 0:
@@ -61,6 +70,11 @@ def make_input_map(n_units, num_non_zero, min_value, max_value, device):
 
 
 def move_static_tensors(model, device):
+    """Move static reservoir tensors to the selected device.
+
+    :param model: Unicycle reservoir instance.
+    :param device: Target Torch device.
+    """
     model.lin_input_map = model.lin_input_map.to(device)
     model.ang_input_map = model.ang_input_map.to(device)
     model.unicycle_network.lin_damping = model.unicycle_network.lin_damping.to(device)
@@ -70,6 +84,14 @@ def move_static_tensors(model, device):
 
 
 def make_initial_state(batch_size, n_units, aligned_orientations, device):
+    """Sample an initial unicycle reservoir state.
+
+    :param batch_size: Number of batch states to create.
+    :param n_units: Number of reservoir units.
+    :param aligned_orientations: If ``True``, all units share one angle.
+    :param device: Torch device for returned tensors.
+    :return: Tuple ``(x, z, theta, s, omega)``.
+    """
     x = torch.rand(batch_size, n_units, device=device)
     z = torch.rand(batch_size, n_units, device=device)
     theta = torch.rand(batch_size, n_units, device=device) * (4 * math.pi) - (2 * math.pi)
@@ -82,6 +104,13 @@ def make_initial_state(batch_size, n_units, aligned_orientations, device):
 
 
 def set_model_initial_state(model, batch_size, initial_state):
+    """Copy a template initial state into a model for a batch.
+
+    :param model: Unicycle reservoir instance.
+    :param batch_size: Batch size to expand the state to.
+    :param initial_state: Tuple returned by :func:`make_initial_state` or
+        :func:`run_washup`.
+    """
     model.x_init = initial_state[0].expand(batch_size, -1).clone()
     model.z_init = initial_state[1].expand(batch_size, -1).clone()
     model.theta_init = initial_state[2].expand(batch_size, -1).clone()
@@ -91,6 +120,14 @@ def set_model_initial_state(model, batch_size, initial_state):
 
 @torch.no_grad()
 def run_washup(model, initial_state, washup_steps, device):
+    """Run zero-input washup dynamics and return the settled state.
+
+    :param model: Unicycle reservoir instance.
+    :param initial_state: Initial ``(x, z, theta, s, omega)`` tuple.
+    :param washup_steps: Number of zero-input simulation steps.
+    :param device: Torch device used for generated inputs.
+    :return: Detached settled state tuple.
+    """
     x, z, theta, s, omega = initial_state
     u_lin = torch.zeros((1, washup_steps, 1), device=device)
     u_ang = torch.zeros_like(u_lin, device=device)
@@ -107,6 +144,16 @@ def run_washup(model, initial_state, washup_steps, device):
 
 @torch.no_grad()
 def collect_activations(data_loader, model, initial_state, device, desc):
+    """Collect reservoir activations and labels from a data loader.
+
+    :param data_loader: Loader yielding image batches and labels.
+    :param model: Unicycle reservoir used as a feature extractor.
+    :param initial_state: Template reservoir state for each batch.
+    :param device: Torch device for inference.
+    :param desc: Progress-bar description and error context.
+    :return: Tuple ``(activations, labels)`` as NumPy arrays.
+    :raises RuntimeError: If reservoir states contain NaNs.
+    """
     activations, ys = [], []
     for images, labels in tqdm(data_loader, desc=desc):
         batch_size = images.shape[0]
@@ -124,12 +171,32 @@ def collect_activations(data_loader, model, initial_state, device, desc):
 
 
 def score_esn(data_loader, model, classifier, scaler, initial_state, device, desc):
+    """Score a readout on scaled reservoir activations.
+
+    :param data_loader: Loader to evaluate.
+    :param model: Reservoir feature extractor.
+    :param classifier: Fitted classifier exposing ``score``.
+    :param scaler: Fitted scaler exposing ``transform``.
+    :param initial_state: Template reservoir state.
+    :param device: Torch device for inference.
+    :param desc: Progress-bar description.
+    :return: Classifier score.
+    """
     activations, ys = collect_activations(data_loader, model, initial_state, device, desc)
     activations = scaler.transform(activations)
     return classifier.score(activations, ys)
 
 
 def run_experiment(config, dataroot, batch_size, device):
+    """Run the fixed MNIST unicycle-reservoir experiment.
+
+    :param config: Experiment configuration dictionary.
+    :param dataroot: Root directory for the MNIST dataset.
+    :param batch_size: Batch size for train/validation/test loaders.
+    :param device: Torch device for model execution.
+    :return: Dictionary with ``train``, ``validation``, and ``test`` scores.
+    :raises RuntimeError: If collected activations contain NaNs.
+    """
     n_units = config["n_units"]
     lin_input_map = make_input_map(
         n_units,
@@ -227,6 +294,10 @@ def run_experiment(config, dataroot, batch_size, device):
 
 
 def parse_args():
+    """Parse command-line arguments for the fixed MNIST experiment.
+
+    :return: Parsed ``argparse.Namespace``.
+    """
     parser = argparse.ArgumentParser(description="Run one fixed MNIST reservoir experiment.")
     parser.add_argument("--dataroot", type=str, default=os.getcwd())
     parser.add_argument("--batch-size", type=int, default=500)

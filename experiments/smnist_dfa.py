@@ -58,6 +58,12 @@ if args.permuted:
 
 @torch.no_grad()
 def test(model, data_loader):
+    """Evaluate a DFA sequence model on sequential MNIST batches.
+
+    :param model: Trained DFA model returning class scores.
+    :param data_loader: Loader yielding sequential MNIST batches.
+    :return: Accuracy percentage.
+    """
     activations, ys = [], []
     for x, y in tqdm(data_loader):
         x = x.to(device)

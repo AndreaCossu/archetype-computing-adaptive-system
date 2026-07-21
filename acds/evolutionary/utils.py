@@ -6,6 +6,7 @@ import json
 import graphviz
 
 def print_kinematic_matrix():
+    """Print the inverse omniwheel kinematic matrix used by the simulator."""
     # Define the original matrix
     A = np.array([
         [-np.sqrt(3)/2, 0.5, 1],
@@ -20,6 +21,13 @@ def print_kinematic_matrix():
     print(A_inv)
 
 def create_gif(images, gif_path, duration=0.1, loop=0):
+    """Save a list of PIL images as an animated GIF.
+
+    :param images: Ordered image frames. If empty, no file is written.
+    :param gif_path: Output GIF path.
+    :param duration: Frame duration passed to PIL.
+    :param loop: Loop count passed to PIL, where ``0`` means infinite.
+    """
     # Save the images as a gif
     if images:
         images[0].save(
@@ -31,6 +39,13 @@ def create_gif(images, gif_path, duration=0.1, loop=0):
         )
 
 def visual_grid_to_image(visual_grid, blocks_info = None):
+    """Convert the text-grid renderer output into a PIL image.
+
+    :param visual_grid: Two-dimensional grid containing ``.`` cells, agent
+        ids, or ANSI-colored block symbols.
+    :param blocks_info: Optional ``(correct, wrong)`` retrieve counts.
+    :return: Rendered RGB image.
+    """
     # Define the size of each cell in the image
     cell_size = 20
     img_size = (len(visual_grid) * cell_size, len(visual_grid[0]) * cell_size)
@@ -76,18 +91,37 @@ def visual_grid_to_image(visual_grid, blocks_info = None):
     return img
 
 def load_logbook_json(path):
+    """Load a saved evolutionary logbook JSON file.
+
+    :param path: Result directory containing ``logbook.json``.
+    :return: Parsed JSON object.
+    """
     logbook_path = f"{path}/logbook.json"
     with open(logbook_path, "r") as f:
         logbook = json.load(f)
     return logbook
 
 def load_experiment_json(path):
+    """Load a saved experiment metadata JSON file.
+
+    :param path: Result directory containing ``experiment.json``.
+    :return: Parsed JSON object.
+    """
     experiment_path = f"{path}/experiment.json"
     with open(experiment_path, "r") as f:
         experiment = json.load(f)
     return experiment
 
 def plot_evolution(bests, avgs = None, medians = None, stds = None, completion_fitness = None, filename = None):
+    """Plot evolutionary fitness statistics over generations.
+
+    :param bests: Best fitness values per generation.
+    :param avgs: Optional average fitness values.
+    :param medians: Optional median fitness values.
+    :param stds: Optional standard deviations for averages.
+    :param completion_fitness: Optional horizontal completion threshold.
+    :param filename: If provided, save the figure instead of displaying it.
+    """
     x_values = np.arange(len(np.array(avgs)))
     plt.plot(bests, label="best")
     
@@ -111,10 +145,22 @@ def plot_evolution(bests, avgs = None, medians = None, stds = None, completion_f
 # TODO: maybe put them in a deap python file
 def eaSimpleWithElitism(population, toolbox, cxpb, mutpb, ngen, stats=None,
              halloffame=None, verbose=__debug__):
-    """This algorithm is similar to DEAP eaSimple() algorithm, with the modification that
-    halloffame is used to implement an elitism mechanism. The individuals contained in the
-    halloffame are directly injected into the next generation and are not subject to the
-    genetic operators of selection, crossover and mutation.
+    """Run a DEAP simple evolutionary loop with hall-of-fame elitism.
+
+    Hall-of-fame individuals are injected directly into the next generation and
+    are not modified by crossover or mutation.
+
+    :param population: Initial DEAP population.
+    :param toolbox: DEAP toolbox with ``evaluate``, ``select``, ``mate``, and
+        ``mutate`` operators.
+    :param cxpb: Crossover probability.
+    :param mutpb: Mutation probability.
+    :param ngen: Number of generations.
+    :param stats: Optional DEAP statistics collector.
+    :param halloffame: Required DEAP hall-of-fame object.
+    :param verbose: If ``True``, print logbook rows.
+    :return: Tuple ``(population, logbook)`` after evolution.
+    :raises ValueError: If ``halloffame`` is missing.
     """
     logbook = tools.Logbook()
     logbook.header = ['gen', 'nevals'] + (stats.fields if stats else [])
@@ -169,6 +215,17 @@ def eaSimpleWithElitism(population, toolbox, cxpb, mutpb, ngen, stats=None,
     return population, logbook
 
 def eaEvoStick(population, toolbox, ngen, stats=None, halloffame=None, verbose=__debug__):
+    """Run an elitist mutation-only evolutionary loop.
+
+    :param population: Initial DEAP population.
+    :param toolbox: DEAP toolbox with selection, clone, mutate, and evaluate
+        operators.
+    :param ngen: Number of generations.
+    :param stats: Optional DEAP statistics collector.
+    :param halloffame: Optional hall-of-fame object updated each generation.
+    :param verbose: If ``True``, print logbook rows.
+    :return: Tuple ``(population, logbook)`` after evolution.
+    """
     logbook = tools.Logbook()
     logbook.header = ['gen', 'nevals'] + (stats.fields if stats else [])
 
@@ -221,17 +278,48 @@ def eaEvoStick(population, toolbox, ngen, stats=None, halloffame=None, verbose=_
     return population, logbook
 
 def selElitistAndTournament(individuals, k, frac_elitist = 0.1, tournsize = 3):
+    """Select a mix of elite and tournament-chosen individuals.
+
+    :param individuals: Candidate individuals.
+    :param k: Target number of selected individuals.
+    :param frac_elitist: Fraction selected with ``selBest``.
+    :param tournsize: Tournament size for the remaining selections.
+    :return: Selected individuals.
+    """
     return tools.selBest(individuals, int(k*frac_elitist)) + tools.selTournament(individuals, int(k*(1-frac_elitist)), tournsize=tournsize)
 
 def inverse_sigmoid(y):
+    """Compute the logit transform.
+
+    :param y: Value or array in ``(0, 1)``.
+    :return: ``log(y / (1 - y))``.
+    """
     return np.log(y / (1 - y))
 
 def neat_sigmoid(x):
+    """NEAT-compatible sigmoid activation.
+
+    :param x: Input scalar or array.
+    :return: Logistic activation with NEAT's ``4.9`` slope.
+    """
     return 1 / (1 + np.exp(-4.9 * x))
 
 def draw_net(config, genome, view=False, filename=None, node_names=None, show_disabled=True, prune_unused=False,
              node_colors=None, fmt='svg'):
-    """ Receives a genome and draws a neural network with arbitrary topology. """
+    """Draw a NEAT genome graph with Graphviz.
+
+    :param config: NEAT configuration containing input and output keys.
+    :param genome: Genome to visualize.
+    :param view: If ``True``, ask Graphviz to open the rendered file.
+    :param filename: Output filename prefix passed to Graphviz.
+    :param node_names: Optional mapping from node ids to labels.
+    :param show_disabled: If ``True``, draw disabled connections as dotted
+        edges.
+    :param prune_unused: If ``True``, prune nodes that do not affect outputs.
+    :param node_colors: Optional mapping from node ids to fill colors.
+    :param fmt: Graphviz output format.
+    :return: Graphviz ``Digraph`` object.
+    """
     # Attributes for network nodes.
     # if graphviz is None:
     #     warnings.warn("This display is not available due to a missing optional dependency (graphviz)")
@@ -298,6 +386,5 @@ def draw_net(config, genome, view=False, filename=None, node_names=None, show_di
     dot.render(filename, view=view)
 
     return dot
-
 
 

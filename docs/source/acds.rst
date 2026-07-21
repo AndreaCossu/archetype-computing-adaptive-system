@@ -9,6 +9,7 @@ Subpackages
 
    acds.archetypes
    acds.benchmarks
+   acds.evolutionary
 
 Module contents
 ---------------
