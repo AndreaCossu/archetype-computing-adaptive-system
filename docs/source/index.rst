@@ -6,7 +6,7 @@
 Archetype Computing and Adaptive System (ACDS) documentation
 ============================================================
 
-Documentazione delle principali funzioni del sistema **Archetype Computing Adaptive System**.
+Documentation for the main functions of the **Archetype Computing Adaptive System**.
 
 .. toctree::
    :maxdepth: 2

@@ -81,7 +81,7 @@ if args.seed is not None:
     torch.manual_seed(args.seed)
 
 '''
-SELEZIONE DATASET
+DATASET SELECTION
 '''
 if args.task == 'MNIST':
     transform = torchvision.transforms.Compose([torchvision.transforms.ToTensor(),
@@ -135,16 +135,16 @@ elif args.task == 'CIFAR10':
 elif args.task == 'PD':
     from pendigits_dataset import PenDigitsDataset
 
-    # Esempio: supponiamo di avere i file pendigits_train.csv e pendigits_test.csv
+    # Example: assume the train and test files are available in the PenDigits folder.
     train_dataset = PenDigitsDataset(ts_file=args.data_root + '/PenDigits/PenDigits_TRAIN.ts')
     test_dataset = PenDigitsDataset(ts_file=args.data_root + '/PenDigits/PenDigits_TEST.ts')
 
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=mbs, shuffle=True, num_workers=0)
     test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=mbs, shuffle=False, num_workers=0)
 
-    # Se vuoi una validazione separata, puoi fare uno split su train_dataset
-    # Oppure avere un pendigits_valid.csv
-    valid_loader = test_loader  # Se non hai un set di validazione dedicato
+    # For a separate validation set, split train_dataset or load a dedicated
+    # PenDigits validation file.
+    valid_loader = test_loader  # Fallback when no dedicated validation set exists.
 
 if args.act == 'mysig':
     activation = my_sigmoid
@@ -167,7 +167,7 @@ print('loss =', criterion, '\n')
 
 
 '''
-SELEZIONE MODELLO
+MODEL SELECTION
 '''
 compact = False     # compact == True if the model doesn't use Time feature
 ron = False
@@ -249,7 +249,7 @@ print('\ntraining algorithm : ', args.alg, '\n')
 
 
 '''
-TRAINING MODELLO
+MODEL TRAINING
 '''
 eval_loader = test_loader if args.use_test else valid_loader
 
@@ -261,11 +261,11 @@ if args.convergence:
         differences = visualize_convergence_TS(model, test_loader, args.T1, device, ron=ron, name="Pre-training convergence")
 
 if __name__ == "__main__":
-    # Creo una lista globale dove accumulare i dati di norma per TUTTE le epoche
+    # Accumulate norm data across all epochs.
     all_hidden_layer_norms = []
     
     for epoch in range(args.epochs):
-        # hidden_layer_norms != [] solo se non usiamo EP
+        # hidden_layer_norms is non-empty only when EP is not used.
         if compact:
             hidden_layer_norms = train_epoch(model=model, optimizer=optimizer, epoch_number=epoch, train_loader=train_loader, T1=args.T1, T2=args.T2, betas=betas, device=device,
                         criterion=criterion, alg=args.alg, random_sign=args.random_sign, thirdphase=args.thirdphase, cep_debug=args.cep_debug, ron=ron)
