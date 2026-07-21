@@ -5,9 +5,10 @@ from torch.nn import functional as F
 
 
 class AdiacDataset(torch.utils.data.Dataset):
-    """
-    This class assumes mydata to have the form:
-            [ (x1,y1), (x2,y2) ]
+    """Dataset wrapper for Adiac time-series samples.
+
+    This class assumes mydata to have the form
+    ``[(x1, y1), (x2, y2)]``,
     where xi are inputs, and yi are targets.
     """
 

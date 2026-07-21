@@ -3,6 +3,11 @@ from torch.utils.data import Dataset
 from aeon.datasets import load_from_ts_file
 
 class PenDigitsDataset(Dataset):
+    """Torch dataset wrapper for PenDigits ``.ts`` files.
+
+    :param ts_file: Path to an aeon-compatible PenDigits time-series file.
+    """
+
     def __init__(self, ts_file):
         """
         ts_file: percorso al file .ts

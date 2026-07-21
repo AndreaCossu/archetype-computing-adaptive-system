@@ -9,6 +9,15 @@ from acds.archetypes.ron import RandomizedOscillatorsNetwork
 
 
 def pca(all_states, pca_dim, out_dir, suffix_file=""):
+    """Project reservoir states with PCA and save the projection artifacts.
+
+    :param all_states: State matrix with shape ``(n_samples, n_hidden)``.
+    :param pca_dim: Projection dimensionality, either ``2`` or ``3``.
+    :param out_dir: Directory where ``.npy`` and plot files are written.
+    :param suffix_file: Optional suffix inserted before output extensions.
+    :return: PCA-transformed states.
+    :raises ValueError: If ``pca_dim`` is not ``2`` or ``3``.
+    """
     # perform PCA on all_states of shape (num_examples, n_hid)
     from sklearn.decomposition import PCA
     pca = PCA(n_components=pca_dim)
@@ -42,6 +51,11 @@ def pca(all_states, pca_dim, out_dir, suffix_file=""):
 
 
 def main(args):
+    """Generate single-reservoir trajectories and PCA artifacts.
+
+    :param args: Parsed command-line namespace with reservoir, trajectory, and
+        output settings.
+    """
     seq_len = args.timesteps - args.washout
 
     # Prepare output directory 

@@ -10,22 +10,47 @@ import math
 import matplotlib.pyplot as plt
 
 def my_sigmoid(x):
+    """Apply the shifted sigmoid activation used by the EP examples.
+
+    :param x: Input tensor.
+    :return: Activated tensor.
+    """
     return 1 / (1 + torch.exp(-4 * (x - 0.5)))
 
 
 def hard_sigmoid(x):
+    """Apply a hard-sigmoid activation on ``[0, 1]``.
+
+    :param x: Input tensor.
+    :return: Activated tensor.
+    """
     return (1 + F.hardtanh(2 * x - 1)) * 0.5
 
 
 def ctrd_hard_sig(x):
+    """Apply a centered hard-sigmoid-like activation.
+
+    :param x: Input tensor.
+    :return: Activated tensor centered around zero.
+    """
     return (F.hardtanh(2 * x)) * 0.5
 
 
 def my_hard_sig(x):
+    """Apply the alternate hard-sigmoid activation used in experiments.
+
+    :param x: Input tensor.
+    :return: Activated tensor.
+    """
     return (1 + F.hardtanh(x - 1)) * 0.5
 
 
 def copy(neurons):
+    """Clone neuron state tensors while preserving gradient tracking.
+
+    :param neurons: Iterable of state tensors.
+    :return: List of detached tensor copies with ``requires_grad`` enabled.
+    """
     copy = []
     for n in neurons:
         copy.append(torch.empty_like(n).copy_(n.data).requires_grad_())
@@ -33,6 +58,12 @@ def copy(neurons):
 
 
 def make_pools(letters):
+    """Build pooling layers from a compact letter specification.
+
+    :param letters: String where ``m`` means max pool, ``a`` average pool, and
+        ``i`` identity.
+    :return: List of Torch pooling/identity modules.
+    """
     pools = []
     for p in range(len(letters)):
         if letters[p] == 'm':
@@ -45,6 +76,12 @@ def make_pools(letters):
 
 
 def my_init(scale):
+    """Create a scaled initializer for convolutional and linear layers.
+
+    :param scale: Multiplicative factor applied after Kaiming/uniform
+        initialization.
+    :return: Initializer function suitable for ``Module.apply``.
+    """
     def my_scaled_init(m):
         if isinstance(m, torch.nn.Conv2d):
             torch.nn.init.kaiming_uniform_(m.weight, math.sqrt(5))
@@ -71,6 +108,11 @@ MODELS
 # Multi-Layer Perceptron
 
 class P_MLP(torch.nn.Module):
+    """Layered equilibrium-propagation multilayer perceptron.
+
+    :param archi: Sequence of layer widths including input and output sizes.
+    :param activation: Activation used for hidden-state updates.
+    """
     def __init__(self, archi, activation=torch.tanh):
         super(P_MLP, self).__init__()
 
@@ -85,6 +127,15 @@ class P_MLP(torch.nn.Module):
             self.synapses.append(torch.nn.Linear(archi[idx], archi[idx + 1], bias=True))
 
     def Phi(self, x, y, neurons, beta, criterion):
+        """Compute the primitive energy for the current network state.
+
+        :param x: Input batch.
+        :param y: Target labels.
+        :param neurons: Current layer-state tensors.
+        :param beta: Nudging coefficient for the loss term.
+        :param criterion: Loss function used when ``beta`` is non-zero.
+        :return: Primitive value per sample.
+        """
         # Computes the primitive function given static input x, label y, neurons is the sequence of hidden layers neurons
         # criterion is the loss
         x = x.view(x.size(0), -1)  # flattening the input
@@ -108,6 +159,16 @@ class P_MLP(torch.nn.Module):
         return phi
 
     def forward(self, x, y, neurons, T, beta=0.0, criterion=torch.nn.MSELoss(reduction='none')):
+        """Run fixed-point dynamics for ``T`` steps.
+
+        :param x: Input batch.
+        :param y: Target labels.
+        :param neurons: Initial layer-state tensors.
+        :param T: Number of dynamics steps.
+        :param beta: Nudging coefficient.
+        :param criterion: Loss function used by the primitive.
+        :return: Updated neuron states.
+        """
         # Run T steps of the dynamics for static input x, label y, neurons and nudging factor beta.
         not_mse = (criterion.__class__.__name__.find('MSE') == -1)
         mbs = x.size(0)
@@ -133,6 +194,12 @@ class P_MLP(torch.nn.Module):
         return neurons
 
     def init_neurons(self, mbs, device):
+        """Initialize all non-input layer states to zero.
+
+        :param mbs: Minibatch size.
+        :param device: Torch device for the state tensors.
+        :return: List of initialized neuron tensors.
+        """
         # Initializing the neurons
         neurons = []
         append = neurons.append
@@ -141,6 +208,15 @@ class P_MLP(torch.nn.Module):
         return neurons
 
     def compute_syn_grads(self, x, y, neurons_1, neurons_2, betas, criterion):
+        """Compute synaptic gradients from two EP steady states.
+
+        :param x: Input batch.
+        :param y: Target labels.
+        :param neurons_1: First steady-state neurons.
+        :param neurons_2: Second steady-state neurons.
+        :param betas: Pair of nudging coefficients.
+        :param criterion: Loss function used by the primitive.
+        """
         # Computing the EP update given two steady states neurons_1 and neurons_2, static input x, label y
         beta_1, beta_2 = betas
 
@@ -158,6 +234,18 @@ class P_MLP(torch.nn.Module):
 # Random Oscillator Network
 
 class RON(torch.nn.Module):
+    """Equilibrium-propagation Random Oscillator Network.
+
+    :param archi: Sequence of layer widths including input and output sizes.
+    :param device: Torch device for parameters and states.
+    :param activation: Activation used by the state updates.
+    :param tau: Oscillator integration scale.
+    :param epsilon_min: Minimum initial epsilon value.
+    :param epsilon_max: Maximum initial epsilon value.
+    :param gamma_min: Minimum initial gamma value.
+    :param gamma_max: Maximum initial gamma value.
+    :param learn_oscillators: If ``True``, learn gamma and epsilon.
+    """
     def __init__(self, archi, device, activation=torch.tanh, tau=1, epsilon_min=0, epsilon_max=1, gamma_min=0, gamma_max=1, learn_oscillators=True):
         super(RON, self).__init__()
 
@@ -186,6 +274,15 @@ class RON(torch.nn.Module):
             self.synapses.append(torch.nn.Linear(archi[idx], archi[idx + 1], bias=True))
 
     def Phi_statez(self, x, y, neuronsy, beta, criterion):
+        """Compute the primitive used for the ``z`` oscillator update.
+
+        :param x: Input batch.
+        :param y: Target labels.
+        :param neuronsy: Current ``y`` state tensors.
+        :param beta: Nudging coefficient.
+        :param criterion: Loss function used by the primitive.
+        :return: Primitive value per sample.
+        """
         x = x.view(x.size(0), -1)
 
         layersy = [x] + neuronsy
@@ -206,6 +303,12 @@ class RON(torch.nn.Module):
         return phi
 
     def Phi_statey(self, neuronsz, neuronsy):
+        """Compute the primitive used for the ``y`` oscillator update.
+
+        :param neuronsz: Current ``z`` state tensors.
+        :param neuronsy: Current ``y`` state tensors.
+        :return: Primitive value per sample.
+        """
         phi = 0.0
         for idx in range(len(neuronsz)):
             phi += 0.5 * (torch.einsum('ij,ij->i', neuronsy[idx], neuronsy[idx]) +
@@ -213,6 +316,16 @@ class RON(torch.nn.Module):
         return phi
 
     def Phi(self, x, y, neuronsz, neuronsy, beta, criterion):
+        """Compute the full RON primitive for gradient updates.
+
+        :param x: Input batch.
+        :param y: Target labels.
+        :param neuronsz: Current ``z`` state tensors.
+        :param neuronsy: Current ``y`` state tensors.
+        :param beta: Nudging coefficient.
+        :param criterion: Loss function used by the primitive.
+        :return: Primitive value per sample.
+        """
         x = x.view(x.size(0), -1)
         
         layersz = [x] + neuronsz
@@ -239,6 +352,17 @@ class RON(torch.nn.Module):
         return phi
 
     def forward(self, x, y, neuronsz, neuronsy, T, beta=0.0, criterion=torch.nn.MSELoss(reduction='none')):
+        """Run RON fixed-point dynamics for ``T`` steps.
+
+        :param x: Input batch.
+        :param y: Target labels.
+        :param neuronsz: Initial ``z`` state tensors.
+        :param neuronsy: Initial ``y`` state tensors.
+        :param T: Number of dynamics steps.
+        :param beta: Nudging coefficient.
+        :param criterion: Loss function used by the primitive.
+        :return: Tuple ``(neuronsz, neuronsy)`` after the updates.
+        """
         # Run T steps of the dynamics for static input x, label y, neurons and nudging factor beta.
         not_mse = (criterion.__class__.__name__.find('MSE') == -1)
         mbs = x.size(0)
@@ -275,6 +399,12 @@ class RON(torch.nn.Module):
         return neuronsz, neuronsy
 
     def init_neurons(self, mbs, device):
+        """Initialize RON ``z`` and ``y`` state tensors.
+
+        :param mbs: Minibatch size.
+        :param device: Torch device for the state tensors.
+        :return: Tuple ``(neuronsz, neuronsy)``.
+        """
         # Initializing the neurons
         neuronsz, neuronsy = [], []
         for size in self.archi[1:-1]:
@@ -284,6 +414,15 @@ class RON(torch.nn.Module):
         return neuronsz, neuronsy
 
     def compute_syn_grads(self, x, y, neurons_1, neurons_2, betas, criterion):
+        """Compute synaptic gradients from two RON EP steady states.
+
+        :param x: Input batch.
+        :param y: Target labels.
+        :param neurons_1: First ``(z, y)`` steady state.
+        :param neurons_2: Second ``(z, y)`` steady state.
+        :param betas: Pair of nudging coefficients.
+        :param criterion: Loss function used by the primitive.
+        """
         # Computing the EP update given two steady states neurons_1 and neurons_2, static input x, label y
         beta_1, beta_2 = betas
         neurons_1z, neurons_1y = neurons_1
@@ -310,6 +449,24 @@ For P_MLP we use a single state (neurons) while for RON we use two states (neuro
 
 def train_epoch(model, optimizer, epoch_number, train_loader, T1, T2, betas, device, criterion, alg='EP',
           random_sign=False, thirdphase=False, cep_debug=False, ron=False, id=None):
+    """Train one epoch with EP, CEP, or BPTT dynamics.
+
+    :param model: EP model to train.
+    :param optimizer: Torch optimizer.
+    :param epoch_number: Current epoch index used for logging.
+    :param train_loader: Loader yielding training batches.
+    :param T1: Number of first-phase dynamics steps.
+    :param T2: Number of second-phase dynamics steps.
+    :param betas: Pair of nudging coefficients.
+    :param device: Torch device for batches and states.
+    :param criterion: Loss function used by the primitive.
+    :param alg: Training algorithm, such as ``EP``, ``CEP``, or ``BPTT``.
+    :param random_sign: If ``True``, randomly flip the second beta sign.
+    :param thirdphase: If ``True``, run the third-phase correction.
+    :param cep_debug: If ``True``, apply CEP debug scaling.
+    :param ron: If ``True``, use two-state RON dynamics.
+    :param id: Optional trial id that suppresses progress printing.
+    """
     mbs = train_loader.batch_size
     iter_per_epochs = math.ceil(len(train_loader.dataset) / mbs)
     beta_1, beta_2 = betas
@@ -479,9 +636,20 @@ def train_epoch_TS(
     id=None,
     ron=False
 ):
-    """
-    Train an epoch on time-series data, updating weights at every timestep.
-    Modified to support MLP (with a single state) in addition to RON (with two states).
+    """Train one epoch on time-series data with per-timestep updates.
+
+    :param model: EP model to train.
+    :param optimizer: Torch optimizer.
+    :param epoch_number: Current epoch index used for logging.
+    :param train_loader: Loader yielding sequence batches.
+    :param T1: Number of first-phase dynamics steps per time step.
+    :param T2: Number of second-phase dynamics steps per time step.
+    :param betas: Pair of nudging coefficients.
+    :param device: Torch device for batches and states.
+    :param criterion: Loss function used by the primitive.
+    :param reset_factor: Scale applied to carried state between time steps.
+    :param id: Optional trial id that suppresses progress printing.
+    :param ron: If ``True``, use two-state RON dynamics.
     """
 
     model.train()
@@ -574,6 +742,15 @@ EVALUATE
 '''
 
 def evaluate(model, loader, T, device, ron=False):
+    """Evaluate classification accuracy for fixed-point dynamics.
+
+    :param model: EP model to evaluate.
+    :param loader: Data loader yielding evaluation batches.
+    :param T: Number of dynamics steps.
+    :param device: Torch device for batches and states.
+    :param ron: If ``True``, use two-state RON dynamics.
+    :return: Accuracy in ``[0, 1]``.
+    """
     # Evaluate the model on a dataloader with T steps for the dynamics
     model.eval()
     correct = 0
@@ -601,12 +778,14 @@ def evaluate(model, loader, T, device, ron=False):
 
 
 def evaluate_TS(model, loader, T, device, ron=False):
-    """
-    Evaluate the model on time-series data.
-    - For a single-state network (e.g. P_MLP), we use one state.
-    - For models like RON with two states, we use both states.
-    If labels are provided per time step (shape: [B, T]), then the label for the current time step
-    is used; otherwise, the same label is applied at every step.
+    """Evaluate classification accuracy on time-series data.
+
+    :param model: EP model to evaluate.
+    :param loader: Data loader yielding sequence batches.
+    :param T: Number of dynamics steps per time step.
+    :param device: Torch device for batches and states.
+    :param ron: If ``True``, use two-state RON dynamics.
+    :return: Accuracy in ``[0, 1]``.
     """
     model.eval()
     correct = 0
@@ -648,9 +827,15 @@ CONVERGENCE
 '''
 
 def visualize_convergence(model, loader, T_ep, device, ron=False, name=None):
-    """
-    Visualize the convergence of a non-time-series model's state to a fixed point,
-    storing differences between consecutive states.
+    """Plot fixed-point convergence for non-time-series dynamics.
+
+    :param model: EP model to evaluate.
+    :param loader: Data loader used to fetch one batch.
+    :param T_ep: Number of single-step EP iterations to visualize.
+    :param device: Torch device for batches and states.
+    :param ron: If ``True``, use two-state RON dynamics.
+    :param name: Optional plot title.
+    :return: Mean L2 differences between consecutive states.
     """
     model.eval()  # Set model to evaluation mode
 
@@ -729,20 +914,15 @@ def visualize_convergence(model, loader, T_ep, device, ron=False, name=None):
 
 
 def visualize_convergence_TS(model, loader, T_ep, device, ron=False, name=None):
-    """
-    Visualize the convergence of a time-series model's state to a fixed point
-    (in the same way 'evaluate_TS' processes data).
-    
-    Args:
-        model: The time-series neural network model (single-state or RON).
-        loader: Dataloader providing evaluation samples.
-        T_ep: Number of "mini-steps" (EP iterations) per time step to measure convergence.
-        device: Torch device to run the model on.
-        ron: Whether the model is RON (two states: z, y) or not (single state).
-        
-    Returns:
-        A list (or 1D array) of mean L2 norm differences between consecutive
-        states across all time steps and EP iterations.
+    """Plot fixed-point convergence for time-series dynamics.
+
+    :param model: EP model to evaluate.
+    :param loader: Data loader used to fetch one sequence batch.
+    :param T_ep: Number of single-step EP iterations per time step.
+    :param device: Torch device for batches and states.
+    :param ron: If ``True``, use two-state RON dynamics.
+    :param name: Optional plot title.
+    :return: Mean L2 differences across all time steps and EP iterations.
     """
     model.eval()
     

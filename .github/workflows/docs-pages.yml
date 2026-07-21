@@ -38,7 +38,28 @@ jobs:
 
       - name: Generate API docs (sphinx-apidoc)
         run: |
-          sphinx-apidoc -o docs/source acds
+          sphinx-apidoc --force --no-toc -o docs/source acds
+          sphinx-apidoc --force --no-toc -o docs/source experiments \
+            experiments/adiac.py \
+            experiments/adiac_dfa.py \
+            experiments/adiac_trained.py \
+            experiments/cifar10.py \
+            experiments/cifar10_gray.py \
+            experiments/libras.py \
+            experiments/mackey_glass.py \
+            experiments/mallat.py \
+            experiments/psmnist.py \
+            experiments/smnist.py \
+            experiments/smnist_dfa.py \
+            experiments/trace.py \
+            experiments/trained_libras.py \
+            experiments/trained_mackey_glass.py \
+            experiments/trained_mallat.py \
+            experiments/trained_smnist.py \
+            experiments/trained_trace.py \
+            experiments/equilibrium_propagation/main.py \
+            experiments/sclbridge/rnn_avalanche.py
+          sphinx-apidoc --force --no-toc -o docs/source robots_demo
 
       - name: Build Sphinx HTML
         run: |

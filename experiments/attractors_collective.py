@@ -10,13 +10,13 @@ from collections import defaultdict
 
 
 def plot_combined_pca(pca_results, out_dir, labels=None):
-    """
-    Plot multiple PCA results in a single scatter plot with different markers.
+    """Plot multiple PCA projections in one scatter figure.
 
-    Args:
-        pca_results: list of np.ndarray, each of shape (N, 2) or (N, 3)
-        out_path: path to save the figure (e.g., 'combined_pca.png')
-        labels: optional list of labels for the legend
+    :param pca_results: List of arrays with shape ``(n_samples, 2)`` or
+        ``(n_samples, 3)``.
+    :param out_dir: Directory where ``pca_combined.png`` is written.
+    :param labels: Optional labels for the legend.
+    :raises ValueError: If no PCA results are provided.
     """
     import matplotlib.pyplot as plt
     from mpl_toolkits.mplot3d import Axes3D
@@ -56,6 +56,11 @@ def plot_combined_pca(pca_results, out_dir, labels=None):
 
 
 def main(args):
+    """Generate coupled-reservoir trajectories and PCA summaries.
+
+    :param args: Parsed command-line namespace with network, trajectory, and
+        output settings.
+    """
     # Prepare output directory
     out_dir = os.path.join(
         "/scratch/a.cossu/results_collective",

@@ -1,7 +1,14 @@
 import neat.config
-import environment
-import neural_controller 
-from utils import plot_evolution, draw_net
+try:
+    from . import environment
+    from .utils import plot_evolution, draw_net
+except ImportError:  # pragma: no cover - supports direct script execution.
+    import environment
+    from utils import plot_evolution, draw_net
+try:
+    import neural_controller
+except ImportError:  # pragma: no cover - optional controller module.
+    neural_controller = None
 import random
 import numpy as np
 import neat
@@ -33,6 +40,20 @@ FREQUENCY_EVAL_RETENTION = 10
 # TODO: make a separte class only for NEAT
 
 class LifelongEvoSwarmExperiment:
+    """Coordinate lifelong NEAT optimization across changing swarm tasks.
+
+    The experiment owns a swarm environment, a NEAT population, and the
+    retained environments/models used to evaluate behavior after seasonal
+    drifts.
+
+    :param name: User-facing experiment name used in result paths.
+    :param population_size: Number of genomes in the NEAT population.
+    :param env: Swarm-foraging environment evaluated by the controllers.
+    :param config_neat: NEAT configuration object.
+    :param seed: Random seed for Python and NumPy generators.
+    :param n_envs: Number of seeded environments used per fitness estimate.
+    :param n_workers: Number of worker processes for genome evaluation.
+    """
     # TODO: we dont load
     def __init__(self,
                 name : str = None,
@@ -87,6 +108,11 @@ class LifelongEvoSwarmExperiment:
         np.random.seed(self.seed)
     
     def drift(self, new_colors, new_target):
+        """Apply a seasonal task drift and retain the previous task state.
+
+        :param new_colors: Color ids available in the next season.
+        :param new_target: Target color id for the next season.
+        """
         # TODO: validate if we are calling this dirft method properly
         
         self.experiment_name = f"{self.experiment_name}_{color_map[new_target]}" # Add the new target color to the name
@@ -348,6 +374,14 @@ class LifelongEvoSwarmExperiment:
         self.log = stats
 
     def run_genome(self, id_genome, env, filename = None):
+        """Replay one genome in an environment and optionally save a GIF.
+
+        :param id_genome: Genome id in the current NEAT population.
+        :param env: Environment instance used for the replay.
+        :param filename: Optional GIF suffix written under the result folder.
+        :return: Tuple ``(total_reward, info)`` for the replayed episode.
+        :raises ValueError: If the environment or NEAT config is missing.
+        """
         # TODO: make it prettier
         # TODO: check all this
         if self.env is None:
@@ -572,6 +606,21 @@ class LifelongEvoSwarmExperiment:
             regularization_type : str = None, 
             regularization_coefficient = None,
             n_prev_models = 1):
+        """Run NEAT for the current task and persist experiment artifacts.
+
+        :param generations: Number of NEAT generations to execute.
+        :param eval_retention: Optional retention metrics, such as ``top`` or
+            ``population``.
+        :param n_prev_eval_retention: Number of previous environments used for
+            retention evaluation.
+        :param regularization_type: Optional regularization strategy for
+            post-drift training.
+        :param regularization_coefficient: Coefficient or coefficients for the
+            selected regularizer.
+        :param n_prev_models: Number of retained models used by regularizers.
+        :raises ValueError: If required experiment configuration is missing or
+            an unsupported retention/regularization option is provided.
+        """
 
         if self.name is None:
             raise ValueError("Name is not set. Set the name of the experiment first.")

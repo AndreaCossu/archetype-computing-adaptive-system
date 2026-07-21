@@ -10,6 +10,13 @@ from sklearn.metrics import root_mean_squared_error
 
 
 def normalize_features(d, mean=None, std=None):
+    """Standardize sequence features across samples and timesteps.
+
+    :param d: Array with shape ``(n_samples, timesteps, n_features)``.
+    :param mean: Optional feature mean from the training split.
+    :param std: Optional feature standard deviation from the training split.
+    :return: Tuple ``(normalized, mean, std)``.
+    """
     n_samples, timesteps, n_features = d.shape
     d_reshaped = d.reshape(-1, n_features)  # reshape to (n_samples * timesteps, n_features)
     if mean is None and std is None:
@@ -20,12 +27,27 @@ def normalize_features(d, mean=None, std=None):
 
 
 def normalize_targets(d, mean, std):
+    """Normalize regression targets with feature statistics.
+
+    :param d: Target array.
+    :param mean: Mean used for normalization.
+    :param std: Standard deviation used for normalization.
+    :return: Normalized target array.
+    """
     d_normalized = (d - mean) / std
     return d_normalized
 
 
 @torch.no_grad()
 def test(data_loader, regressor, scaler, state_average=False):
+    """Evaluate the cobot regressor on reservoir activations.
+
+    :param data_loader: Loader yielding normalized cobot sequences and targets.
+    :param regressor: Fitted regressor exposing ``predict``.
+    :param scaler: Fitted scaler exposing ``transform``.
+    :param state_average: If ``True``, average hidden states over time.
+    :return: Root mean squared error.
+    """
     activations, ys = [], []
     for x, y in tqdm(data_loader):
         x = x.to(device)

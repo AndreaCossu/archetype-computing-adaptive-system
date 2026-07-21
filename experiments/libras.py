@@ -52,6 +52,13 @@ device = (
 
 @torch.no_grad()
 def test(data_loader, classifier, scaler):
+    """Score a fitted classifier on Libras reservoir activations.
+
+    :param data_loader: Loader yielding Libras batches.
+    :param classifier: Fitted classifier exposing ``score``.
+    :param scaler: Fitted scaler exposing ``transform``.
+    :return: Classification accuracy.
+    """
     activations, ys = [], []
     for x, y in tqdm(data_loader):
         x = x.to(device)

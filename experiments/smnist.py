@@ -95,6 +95,13 @@ assert 1.0 > args.sparsity >= 0.0, "Sparsity in [0, 1)"
 
 @torch.no_grad()
 def test(data_loader, classifier, scaler):
+    """Score a fitted classifier on sequential MNIST activations.
+
+    :param data_loader: Loader yielding sequential MNIST batches.
+    :param classifier: Fitted classifier exposing ``score``.
+    :param scaler: Fitted scaler exposing ``transform``.
+    :return: Classification accuracy.
+    """
     activations, ys = [], []
     for images, labels in tqdm(data_loader):
         images = images.to(device)

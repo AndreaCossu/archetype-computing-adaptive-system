@@ -112,16 +112,12 @@ class UnicycleNetwork(nn.Module):
         return x, z, theta, s, omega
     
     def pairwise_differences(self, arr):
-        """
-        Computes all pairwise differences between vectors in the given 2D array.
-        
-        Parameters:
-        arr (numpy.ndarray): A 2D array of shape (n, m), where n is the number of vectors
-                            and m is the dimension of each vector.
-                            
-        Returns:
-        numpy.ndarray: A 3D array of shape (n, n, m) where the element at [i, j, :] is the 
-                    difference between the i-th and j-th vectors.
+        """Compute pairwise differences between batched vectors.
+
+        :param arr: Tensor with shape ``(batch, n_vectors, n_dims)``.
+        :return: Tensor with shape ``(batch, n_vectors, n_vectors, n_dims)``
+            where ``[:, i, j, :]`` is the difference between vectors ``i`` and
+            ``j``.
         """
         b, n, m = arr.shape
         # Expand dimensions to broadcast the subtraction over the pairs within each batch
