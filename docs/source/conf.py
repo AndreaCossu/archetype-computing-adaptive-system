@@ -33,5 +33,7 @@ language = 'it'
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
+html_baseurl = "https://eu-emerge.github.io/archetype-computing-adaptive-system/"
+
 html_theme = 'alabaster'
 html_static_path = ['_static']
