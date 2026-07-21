@@ -3,8 +3,7 @@
 
 Archetype Computing and Adapting System for the [EMERGE project](https://eic-emerge.eu/), a project funded by the European Innovation Council (EIC) of the European Union (EU) under Grant Agreement 101070918.
 
-## Main structure
-The library offers three packages (within the main acds package): archetypes, benchmarks and experiments.
+The APIdoc can be found at [this link.](https://eu-emerge.github.io/archetype-computing-adaptive-system/)
 
 ### Archetypes
 The archetype package implements the Echo State Network model, the Long Short-Term memory model, and the Random Oscillators Network model.
@@ -33,6 +32,9 @@ The sMNIST experiment follows the same approach, but it leverages the MNIST data
 
 Finally, the Mackey-Glass experiment uses the Mackey-Glass dataset and trains an RON model or an ESN model to predict future states given the current one.
 The logging functionalities remain the same across the three experiments. Each experiment describes all the accepted parameters at the beginning of the code.
+
+### Demo
+The `robots_demo` package provides the code to run the EMERGE demo. Please, note that data is not shared through GitHub. 
 
 ## How to use
 The project requires Python 3. To install the acds package, it is sufficient to run
