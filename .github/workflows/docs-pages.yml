@@ -38,8 +38,7 @@ jobs:
 
       - name: Generate API docs (sphinx-apidoc)
         run: |
-          mkdir -p docs/source/api
-          sphinx-apidoc -o docs/source/api src
+          sphinx-apidoc -o docs/source acds
 
       - name: Build Sphinx HTML
         run: |
