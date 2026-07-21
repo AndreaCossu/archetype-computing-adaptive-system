@@ -9,40 +9,40 @@ class PenDigitsDataset(Dataset):
     """
 
     def __init__(self, ts_file):
+        """Load PenDigits samples from an aeon ``.ts`` file.
+
+        :param ts_file: Path to the ``.ts`` file.
         """
-        ts_file: percorso al file .ts
-        """
-        # Carica dal file .ts in due dataframe:
-        # X_df con le serie, y_df con le etichette
-        # In alcuni dataset la label è integrata in X_df
+        # Load the .ts file into two data frames:
+        # X_df with the series and y_df with the labels.
+        # In some datasets the label is integrated into X_df.
         X_df, y_df = load_from_ts_file(ts_file)
 
-        # Se y_df non è un DataFrame, potrebbe essere una serie di etichette
-        # e X_df potrebbe contenere, per ciascun campione, una (o più) serie
-        # di dimensioni diverse. Ogni colonna di X_df può essere una dimensione
-        # temporale.
+        # If y_df is not a DataFrame, it may be a label series while X_df may
+        # contain one or more series with different dimensions for each sample.
+        # Each X_df column can represent one temporal dimension.
         #
-        # Nel caso delle PenDigits potresti avere una sola riga con la forma:
-        # X_df.iloc[i,0] -> la serie di coordinate X
-        # X_df.iloc[i,1] -> la serie di coordinate Y
-        # y_df[i]        -> la label
-        # Verifica la struttura effettiva del file .ts.
+        # For PenDigits, a sample can have this shape:
+        # X_df.iloc[i, 0] -> the X-coordinate series
+        # X_df.iloc[i, 1] -> the Y-coordinate series
+        # y_df[i]         -> the label
+        # Check the actual structure of the .ts file before adapting this code.
         #
-        # Esempio: se i = 0, X_df.iloc[0, 0] -> pd.Series (es. 8 punti),
-        #          X_df.iloc[0, 1] -> pd.Series (stessa lunghezza).
+        # Example: if i = 0, X_df.iloc[0, 0] -> pd.Series (for example, 8
+        # points), and X_df.iloc[0, 1] -> pd.Series with the same length.
         
         self.data = []
         self.labels = []
 
         for i in range(len(X_df)):
-            # Supponendo che ci siano esattamente due colonne: X e Y
-            coords_x = X_df[i, 0]  # array di lunghezza 8
-            coords_y = X_df[i, 1]  # array di lunghezza 8
+            # Assume there are exactly two columns: X and Y.
+            coords_x = X_df[i, 0]  # array of length 8
+            coords_y = X_df[i, 1]  # array of length 8
 
-            # Creiamo un tensore [8, 2]
+            # Create an [8, 2] tensor.
             coords = torch.tensor(list(zip(coords_x, coords_y)), dtype=torch.float)
 
-            # Label associata
+            # Associated label.
             label = y_df[i]
             
             self.data.append(coords)
