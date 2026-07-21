@@ -11,6 +11,7 @@ from tqdm import tqdm
 from acds.archetypes import (
     DeepReservoir,
     RandomizedOscillatorsNetwork,
+    VanDerPolOscillatorsNetwork,    #new model of RRN - Van Der Pol Oscillator Network
     PhysicallyImplementableRandomizedOscillatorsNetwork,
     MultistablePhysicallyImplementableRandomizedOscillatorsNetwork,
 )
@@ -51,6 +52,7 @@ parser.add_argument(
 parser.add_argument("--cpu", action="store_true")
 parser.add_argument("--esn", action="store_true")
 parser.add_argument("--ron", action="store_true")
+parser.add_argument("--vdpon", action="store_true")
 parser.add_argument('--pron', action="store_true")
 parser.add_argument('--mspron', action="store_true")
 
@@ -115,6 +117,10 @@ def test(data_loader, classifier, scaler):
     ys = torch.cat(ys, dim=0).numpy()
     return classifier.score(activations, ys)
 
+#check if exist the vdpon option to set the specify default values of gamma and epsilon and also set the fix number of the hidden states
+if args.vdpon:
+    args.gamma = args.gamma_range = args.epsilon = args.epsilon_range = 1.0
+    args.n_hid = 100
 
 n_inp = 1
 n_out = 37  # classes
@@ -150,6 +156,21 @@ for i in range(args.trials):
         ).to(device)
     elif args.ron:
         model = RandomizedOscillatorsNetwork(
+            n_inp,
+            args.n_hid,
+            args.dt,
+            gamma,
+            epsilon,
+            args.diffusive_gamma,
+            args.rho,
+            args.inp_scaling,
+            topology=args.topology,
+            sparsity=args.sparsity,
+            reservoir_scaler=args.reservoir_scaler,
+            device=device,
+        ).to(device)
+    elif args.vdpon:  #Define if the arg is a Van Der Pol Oscillator Network, so i define a model of the type of the class of VanDerPolOscillatorNetwork
+        model = VanDerPolOscillatorsNetwork(
             n_inp,
             args.n_hid,
             args.dt,
@@ -208,6 +229,8 @@ for i in range(args.trials):
 
 if args.ron:
     f = open(os.path.join(args.resultroot, f"Adiac_log_RON_{args.topology}{args.resultsuffix}.txt"), "a")
+elif args.vdpon:    #To insert into log file to execute of Van Der Pol Oscillator Network
+    f = open(os.path.join(args.resultroot, f"Adiac_log_VDPON_{args.topology}{args.resultsuffix}.txt"), "a")
 elif args.pron:
     f = open(os.path.join(args.resultroot, f"Adiac_log_PRON{args.resultsuffix}.txt"), "a")
 elif args.mspron:
