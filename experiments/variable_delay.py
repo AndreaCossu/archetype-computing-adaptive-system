@@ -230,7 +230,7 @@ def parse_args():
         default="1,2,5,10,20,30,50,75,100,150,200",
     )
     parser.add_argument("--batch_size", type=int, default=512)
-    parser.add_argument("--distractor_scaling", type=float, default=1.0)
+    parser.add_argument("--distractor_scaling", type=float, default=0.01)
     parser.add_argument("--stimulus_scaling", type=float, default=1.0)
     parser.add_argument("--readout_c", type=float, default=1.0)
     parser.add_argument("--readout_max_iter", type=int, default=1000)
