@@ -36,12 +36,8 @@ def parse_delays(spec):
 def make_distractor(delay, args, rng):
     if delay == 0:
         return np.empty(0, dtype=np.float32)
-    if args.distractor_scaling == 0:
-        raise ValueError("Positive delays require a nonzero distractor_scaling.")
-
     distractor = rng.normal(0.0, args.distractor_scaling, delay).astype(np.float32)
-    while np.any(distractor == 0):
-        distractor = rng.normal(0.0, args.distractor_scaling, delay).astype(np.float32)
+
     return distractor
 
 
